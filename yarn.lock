@@ -285,10 +285,10 @@
   resolved "https://registry.npmjs.org/@capacitor/status-bar/-/status-bar-5.0.6.tgz"
   integrity sha512-7od8CxsBnot1XMK3IeOkproFL4hgoKoWAc3pwUvmDOkQsXoxwQm4SR9mLwQavv1XfxtHbFV9Ukd7FwMxOPSViw==
 
-"@esbuild/win32-x64@0.18.20":
+"@esbuild/linux-x64@0.18.20":
   version "0.18.20"
-  resolved "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.18.20.tgz"
-  integrity sha512-kTdfRcSiDfQca/y9QIkng02avJ+NCaQvrMejlsB3RRv5sE9rRoeBPISaZpKxHELzRxZyLvNts1P27W3wV+8geQ==
+  resolved "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.18.20.tgz"
+  integrity sha512-UYqiqemphJcNsFEskc73jQ7B9jgwjWrSayxawS6UVFZGWrAAtkzjxSqnoclCXxWtfwLdzU+vTpcNYhpn43uP1w==
 
 "@eslint-community/eslint-utils@^4.2.0", "@eslint-community/eslint-utils@^4.4.0":
   version "4.4.0"
@@ -519,9 +519,9 @@
     "@babel/runtime" "^7.13.10"
 
 "@radix-ui/react-alert-dialog@^1.0.5":
-  "integrity" "sha512-OrVIOcZL0tl6xibeuGt5/+UxoT2N27KCFOPjFyfXMnchxSHZ/OW7cCX2nGlIYJrbHK/fczPcFzAwvNBB6XBNMA=="
-  "resolved" "https://registry.npmjs.org/@radix-ui/react-alert-dialog/-/react-alert-dialog-1.0.5.tgz"
-  "version" "1.0.5"
+  version "1.0.5"
+  resolved "https://registry.npmjs.org/@radix-ui/react-alert-dialog/-/react-alert-dialog-1.0.5.tgz"
+  integrity sha512-OrVIOcZL0tl6xibeuGt5/+UxoT2N27KCFOPjFyfXMnchxSHZ/OW7cCX2nGlIYJrbHK/fczPcFzAwvNBB6XBNMA==
   dependencies:
     "@babel/runtime" "^7.13.10"
     "@radix-ui/primitive" "1.0.1"
@@ -557,9 +557,9 @@
     "@babel/runtime" "^7.13.10"
 
 "@radix-ui/react-dialog@^1.0.5", "@radix-ui/react-dialog@1.0.5":
-  "integrity" "sha512-GjWJX/AUpB703eEBanuBnIWdIXg6NvJFCXcNlSZk4xdszCdhrJgBoUd1cGk67vFO+WdA2pfI/plOpqz/5GUP6Q=="
-  "resolved" "https://registry.npmjs.org/@radix-ui/react-dialog/-/react-dialog-1.0.5.tgz"
-  "version" "1.0.5"
+  version "1.0.5"
+  resolved "https://registry.npmjs.org/@radix-ui/react-dialog/-/react-dialog-1.0.5.tgz"
+  integrity sha512-GjWJX/AUpB703eEBanuBnIWdIXg6NvJFCXcNlSZk4xdszCdhrJgBoUd1cGk67vFO+WdA2pfI/plOpqz/5GUP6Q==
   dependencies:
     "@babel/runtime" "^7.13.10"
     "@radix-ui/primitive" "1.0.1"
