@@ -11,7 +11,7 @@
     "ionic:serve": "vite dev --host",
     "android": "tsc && vite build && cap sync && cap run android",
     "start-api": "node scripts/start-api.cjs",
-    "start-react": "npm install && npm run dev",
+    "start-react": "npm install && npm run dev -- --open",
     "start": "npm install -g concurrently && concurrently \"npm run start-api\" \"npm run start-react\""
   },
   "dependencies": {

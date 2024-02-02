@@ -2,3 +2,4 @@ fastapi
 uvicorn
 pyrebase4
 aiomysql
+python-multipart
