@@ -9,10 +9,7 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "ionic:serve": "vite dev --host",
-    "android": "tsc && vite build && cap sync && cap run android",
-    "start-api": "node scripts/start-api.cjs",
-    "start-react": "npm install && npm run dev --open",
-    "start": "npm install -g concurrently && concurrently \"npm run start-api\" \"npm run start-react\""
+    "android": "tsc && vite build && cap sync && cap run android"
   },
   "dependencies": {
     "@capacitor/android": "^5.5.1",
