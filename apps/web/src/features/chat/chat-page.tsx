@@ -61,12 +61,33 @@ export const ChatPage = () => {
 
   useEffect(() => {
     if (!messages.data?.items.length) return;
-    const lastId = messages.data.items[messages.data.items.length - 1].id;
-    if (lastId === lastSeenRef.current) return;
-    lastSeenRef.current = lastId;
+    const last = messages.data.items[messages.data.items.length - 1];
+    if (last.id === lastSeenRef.current) return;
+    lastSeenRef.current = last.id;
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-    markRead.mutate(lastId);
-  }, [messages.data, markRead]);
+    if (last.sender.id === user?.id) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    markRead.mutate(last.id);
+  }, [messages.data, markRead, user?.id]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const handler = () => {
+      if (document.visibilityState !== "visible") return;
+      const items = messages.data?.items;
+      if (!items?.length) return;
+      const last = items[items.length - 1];
+      if (last.sender.id === user?.id) return;
+      if (last.id === lastSeenRef.current) {
+        markRead.mutate(last.id);
+        return;
+      }
+      lastSeenRef.current = last.id;
+      markRead.mutate(last.id);
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, [messages.data, markRead, user?.id]);
 
   if (room.isLoading || messages.isLoading) return <LoadingPage label="Loading chat" />;
   if (!room.data) return <div className="p-10 text-center">Room not found.</div>;
