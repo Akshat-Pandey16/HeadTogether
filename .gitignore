@@ -1,27 +1,39 @@
 # Logs
-logs
 *.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
+# Node / web
 node_modules
 dist
 dist-ssr
+.vite
 *.local
 
-# Editor directories and files
+# Python / backend
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+.ty_cache/
+.mypy_cache/
+.pytest_cache/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-Backend/venv
-Backend/__pycache__
+*.swp
+*.swo

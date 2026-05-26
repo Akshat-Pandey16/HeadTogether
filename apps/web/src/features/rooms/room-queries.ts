@@ -147,8 +147,10 @@ export const useLeaveRoom = () => {
 export const useSaveRoom = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ roomId, save }: { roomId: string; save: boolean }) =>
-      save ? roomsApi.save(roomId) : roomsApi.unsave(roomId),
+    mutationFn: async ({ roomId, save }: { roomId: string; save: boolean }) => {
+      if (save) await roomsApi.save(roomId);
+      else await roomsApi.unsave(roomId);
+    },
     onSuccess: (_, { roomId }) => {
       qc.invalidateQueries({ queryKey: roomKeys.detail(roomId) });
       invalidateRoomLists(qc);
