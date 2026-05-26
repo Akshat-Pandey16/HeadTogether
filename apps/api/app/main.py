@@ -65,15 +65,17 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(RequestValidationError)
     async def _handle_validation(_: Request, exc: RequestValidationError) -> JSONResponse:
+        safe_errors = [
+            {k: v for k, v in err.items() if k != "ctx"} for err in exc.errors()
+        ]
         return JSONResponse(
             status_code=422,
             content=jsonable_encoder(
                 ErrorResponse(
                     code="validation_error",
                     message="Request validation failed",
-                    details={"errors": exc.errors()},
-                ),
-                custom_encoder={Exception: str},
+                    details={"errors": safe_errors},
+                )
             ),
         )
 
