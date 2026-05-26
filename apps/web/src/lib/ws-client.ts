@@ -16,6 +16,8 @@ type SocketOptions = {
   reconnect?: boolean;
 };
 
+const STRICT_MODE_GRACE_MS = 60;
+
 export class WsSocket {
   private ws: WebSocket | null = null;
   private listeners = new Set<Listener>();
@@ -23,6 +25,7 @@ export class WsSocket {
   private status: WsStatus = "closed";
   private retries = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private openTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private manuallyClosed = false;
 
@@ -34,6 +37,15 @@ export class WsSocket {
   connect() {
     this.manuallyClosed = false;
     this.setStatus(this.retries === 0 ? "connecting" : "reconnecting");
+    if (this.openTimer) clearTimeout(this.openTimer);
+    this.openTimer = setTimeout(() => {
+      this.openTimer = null;
+      this.openSocket();
+    }, STRICT_MODE_GRACE_MS);
+  }
+
+  private openSocket() {
+    if (this.manuallyClosed) return;
     const url = this.buildUrl();
     const ws = new WebSocket(url);
     this.ws = ws;
@@ -69,9 +81,27 @@ export class WsSocket {
   close() {
     this.manuallyClosed = true;
     if (this.retryTimer) clearTimeout(this.retryTimer);
+    if (this.openTimer) {
+      clearTimeout(this.openTimer);
+      this.openTimer = null;
+    }
     this.stopHeartbeat();
-    this.ws?.close();
+    const ws = this.ws;
+    if (ws) {
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onerror = null;
+      ws.onclose = null;
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        try {
+          ws.close();
+        } catch {
+          // ignore
+        }
+      }
+    }
     this.ws = null;
+    this.setStatus("closed");
   }
 
   send(payload: WsMessage) {
@@ -103,7 +133,7 @@ export class WsSocket {
   private scheduleReconnect() {
     this.retries += 1;
     const delay = Math.min(30_000, 1_000 * 2 ** Math.min(this.retries, 5));
-    this.retryTimer = setTimeout(() => this.connect(), delay);
+    this.retryTimer = setTimeout(() => this.openSocket(), delay);
   }
 
   private startHeartbeat() {

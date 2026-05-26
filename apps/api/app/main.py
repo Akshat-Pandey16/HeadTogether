@@ -14,6 +14,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.core.config import settings
 from app.core.exceptions import AppError
 from app.core.logging import configure_logging, get_logger
+from app.core.middleware import AccessLogMiddleware
 from app.core.rate_limit import limiter
 from app.db.session import engine
 from app.realtime.broker import close_broker, init_broker
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
 
     app.state.limiter = limiter
     app.add_middleware(SlowAPIMiddleware)
+    app.add_middleware(AccessLogMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allow_origins,

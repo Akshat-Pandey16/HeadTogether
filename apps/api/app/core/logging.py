@@ -8,7 +8,7 @@ import structlog
 
 from app.core.config import settings
 
-_NOISY_LOGGERS = ("uvicorn.access", "sqlalchemy.engine.Engine", "watchfiles.main")
+_NOISY_LOGGERS = ("sqlalchemy.engine.Engine", "watchfiles.main")
 
 
 def configure_logging() -> None:
