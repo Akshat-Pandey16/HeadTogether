@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { WsSocket, type WsStatus } from "@/lib/ws-client";
 import { useAuthStore } from "@/stores/auth-store";
 import { WsEvent, type Message, type Page, type ReactionSummary } from "@/types";
+import { roomKeys } from "@/features/rooms/room-queries";
 import { chatKeys } from "./chat-queries";
 
 type Typing = { user_id: string; first_name?: string };
@@ -112,9 +113,17 @@ export const useRoomSocket = (roomId: string): Result => {
             });
             break;
           }
+          case WsEvent.MEMBER_JOINED:
+          case WsEvent.MEMBER_LEFT:
+          case WsEvent.MEMBER_KICKED: {
+            queryClient.invalidateQueries({ queryKey: roomKeys.members(roomId) });
+            queryClient.invalidateQueries({ queryKey: roomKeys.detail(roomId) });
+            break;
+          }
           case WsEvent.RECOVERY: {
-            const recovered = (msg.data?.messages as Message[]) ?? [];
-            if (recovered.length === 0) break;
+            const raw = (msg.data?.messages as Message[]) ?? [];
+            if (raw.length === 0) break;
+            const recovered = [...raw].reverse();
             queryClient.setQueryData<Page<Message>>(chatKeys.messages(roomId), (prev) => {
               if (!prev) return { items: recovered, total: recovered.length, limit: 50, offset: 0 };
               const ids = new Set(prev.items.map((m) => m.id));

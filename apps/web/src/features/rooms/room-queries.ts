@@ -80,12 +80,14 @@ export const useRoom = (roomId: string | undefined) =>
     queryKey: roomKeys.detail(roomId ?? ""),
     queryFn: () => roomsApi.get(roomId!),
     enabled: Boolean(roomId),
+    refetchOnWindowFocus: true,
   });
 
 export const useRoomMembers = (roomId: string, state?: MembershipState) =>
   useQuery({
     queryKey: roomKeys.members(roomId, state),
     queryFn: () => roomsApi.listMembers(roomId, { state }),
+    refetchOnWindowFocus: true,
   });
 
 export const useRoomEvents = (roomId: string) =>

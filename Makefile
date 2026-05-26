@@ -1,6 +1,6 @@
 .PHONY: help \
         install install-api install-web \
-        dev dev-api dev-web dev-scheduler dev-all \
+        dev dev-api dev-web dev-web-https dev-scheduler dev-all \
         build build-web \
         lint lint-api lint-web \
         format format-api format-web \
@@ -26,6 +26,7 @@ help:
 	@echo "  make dev-api              run the FastAPI server (port 8000)"
 	@echo "  make dev-scheduler        run the APScheduler process"
 	@echo "  make dev-web              run the Vite dev server (port 5173)"
+	@echo "  make dev-web-https        run the Vite dev server with self-signed HTTPS"
 	@echo ""
 	@echo "Build:"
 	@echo "  make build                production build (web)"
@@ -79,6 +80,9 @@ dev-scheduler:
 
 dev-web:
 	bun --filter @headtogether/web dev
+
+dev-web-https:
+	VITE_HTTPS=true bun --filter @headtogether/web dev
 
 # -------- Build --------
 

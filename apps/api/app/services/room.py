@@ -22,6 +22,8 @@ from app.models.enums import (
     RoomVisibility,
 )
 from app.models.room import Room, RoomDetail, RoomEvent, RoomMember, SavedRoom
+from app.realtime.broker import get_broker, room_channel
+from app.realtime.events import WsEvent
 from app.repositories.moderation import BlockRepository
 from app.repositories.room import (
     RoomDetailRepository,
@@ -488,6 +490,9 @@ class RoomService:
         )
         await self._promote_from_waitlist_if_room(room)
         await self.session.commit()
+        await self._broadcast_room_event(
+            room.id, WsEvent.MEMBER_LEFT, {"user_id": str(user_id)}
+        )
 
     async def kick(self, *, room_id: UUID, actor_id: UUID, target_user_id: UUID) -> None:
         room = await self._get_or_404(room_id)
@@ -511,6 +516,11 @@ class RoomService:
         )
         await self._promote_from_waitlist_if_room(room)
         await self.session.commit()
+        await self._broadcast_room_event(
+            room.id,
+            WsEvent.MEMBER_KICKED,
+            {"user_id": str(target_user_id), "actor_id": str(actor_id)},
+        )
         await self.notify_service.notify(
             user_id=target_user_id,
             type=NotificationType.ROOM_KICKED,
@@ -650,6 +660,10 @@ class RoomService:
             target_user_id=user_id,
         )
         await self.session.commit()
+        if not waitlisted:
+            await self._broadcast_room_event(
+                room.id, WsEvent.MEMBER_JOINED, {"user_id": str(user_id)}
+            )
         return member, waitlisted
 
     async def _promote_from_waitlist_if_room(self, room: Room) -> None:
@@ -670,6 +684,9 @@ class RoomService:
                 type=NotificationType.WAITLIST_PROMOTED,
                 room_id=room.id,
                 payload={"room_name": room.name},
+            )
+            await self._broadcast_room_event(
+                room.id, WsEvent.MEMBER_JOINED, {"user_id": str(next_in_line.user_id)}
             )
             current += 1
 
@@ -767,6 +784,15 @@ class RoomService:
         raise ValidationError(
             "Could not allocate invite code; please retry",
             code="invite_code_exhausted",
+        )
+
+    async def _broadcast_room_event(
+        self, room_id: UUID, event: WsEvent, data: dict[str, str]
+    ) -> None:
+        broker = get_broker()
+        await broker.publish(
+            room_channel(str(room_id)),
+            {"type": event.value, "data": data},
         )
 
     async def _notify_room_members(

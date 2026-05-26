@@ -11,7 +11,10 @@ export const chatKeys = {
 export const useMessages = (roomId: string) =>
   useQuery({
     queryKey: chatKeys.messages(roomId),
-    queryFn: () => messagesApi.list(roomId, { limit: 50 }),
+    queryFn: async () => {
+      const page = await messagesApi.list(roomId, { limit: 50 });
+      return { ...page, items: [...page.items].reverse() };
+    },
     refetchOnMount: "always",
   });
 

@@ -27,6 +27,7 @@ import { LoadingPage } from "@/components/shared/loading";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { errorMessage } from "@/lib/api-error";
 import { useAuth } from "@/providers/auth-provider";
+import { useRoomSocket } from "@/features/chat/use-room-socket";
 import { RoomMembersPanel } from "./room-members-panel";
 import {
   useArchiveRoom,
@@ -50,6 +51,7 @@ export const RoomDetailPage = () => {
   const remove = useDeleteRoom();
 
   const isOwner = useMemo(() => room.data?.owner_id === user?.id, [room.data, user?.id]);
+  useRoomSocket(room.data?.is_member ? roomId : "");
 
   if (room.isLoading) return <LoadingPage />;
   if (!room.data) return <div className="p-10 text-center text-muted-foreground">Not found.</div>;

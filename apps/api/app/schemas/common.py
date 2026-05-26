@@ -1,12 +1,20 @@
 from __future__ import annotations
 
-from typing import Annotated
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _ensure_utc_datetimes(cls, value: Any) -> Any:
+        if isinstance(value, datetime) and value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value
 
 
 class PageParams(BaseModel):
