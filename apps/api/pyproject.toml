@@ -68,6 +68,7 @@ ignore = [
 "alembic/**" = ["E501", "N999"]
 "app/core/config.py" = ["S104", "S105"]
 "app/schemas/auth.py" = ["S105"]
+"app/api/v1/routes/ws.py" = ["PLR0912", "PLR0915"]
 
 [tool.ruff.format]
 quote-style = "double"
