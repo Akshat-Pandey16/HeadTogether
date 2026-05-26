@@ -7,11 +7,14 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.exceptions import AppError
 from app.core.logging import configure_logging, get_logger
+from app.core.rate_limit import limiter
 from app.db.session import engine
 from app.schemas.common import ErrorResponse, HealthResponse
 
@@ -40,6 +43,8 @@ def create_app() -> FastAPI:
         openapi_url=f"{settings.api_v1_prefix}/openapi.json",
     )
 
+    app.state.limiter = limiter
+    app.add_middleware(SlowAPIMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allow_origins,
@@ -65,6 +70,17 @@ def create_app() -> FastAPI:
                 code="validation_error",
                 message="Request validation failed",
                 details={"errors": exc.errors()},
+            ).model_dump(),
+        )
+
+    @app.exception_handler(RateLimitExceeded)
+    async def _handle_rate_limit(_: Request, exc: RateLimitExceeded) -> JSONResponse:
+        return JSONResponse(
+            status_code=429,
+            content=ErrorResponse(
+                code="rate_limited",
+                message="Too many requests",
+                details={"limit": str(exc.detail)},
             ).model_dump(),
         )
 

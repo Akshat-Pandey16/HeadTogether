@@ -1,8 +1,8 @@
-"""init schema
+"""auth schema with refresh, password reset, lockout, audit
 
-Revision ID: d56235a33721
+Revision ID: fbef8597ea4a
 Revises:
-Create Date: 2026-05-26 12:01:29.851034
+Create Date: 2026-05-26 12:24:11.803455
 
 """
 
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from alembic import op
 
 
-revision: str = "d56235a33721"
+revision: str = "fbef8597ea4a"
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -43,6 +43,10 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column("failed_login_count", sa.SmallInteger(), nullable=False),
+        sa.Column("locked_until", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("last_login_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("last_login_ip", sa.String(length=45), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column(
             "created_at",
@@ -60,6 +64,62 @@ def upgrade() -> None:
     )
     with op.batch_alter_table("users", schema=None) as batch_op:
         batch_op.create_index("ix_users_email", ["email"], unique=True)
+
+    op.create_table(
+        "login_attempts",
+        sa.Column("email", sa.String(length=254), nullable=False),
+        sa.Column("attempted_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("success", sa.Boolean(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=True),
+        sa.Column("ip", sa.String(length=45), nullable=True),
+        sa.Column("user_agent", sa.String(length=255), nullable=True),
+        sa.Column("reason", sa.String(length=64), nullable=True),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="SET NULL"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    with op.batch_alter_table("login_attempts", schema=None) as batch_op:
+        batch_op.create_index(batch_op.f("ix_login_attempts_email"), ["email"], unique=False)
+        batch_op.create_index(
+            "ix_login_attempts_email_time", ["email", "attempted_at"], unique=False
+        )
+        batch_op.create_index("ix_login_attempts_user", ["user_id"], unique=False)
+
+    op.create_table(
+        "password_reset_tokens",
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column("token_hash", sa.String(length=64), nullable=False),
+        sa.Column("issued_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("used_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("token_hash"),
+    )
+    with op.batch_alter_table("password_reset_tokens", schema=None) as batch_op:
+        batch_op.create_index("ix_password_reset_tokens_hash", ["token_hash"], unique=True)
+        batch_op.create_index("ix_password_reset_tokens_user", ["user_id"], unique=False)
+
+    op.create_table(
+        "refresh_tokens",
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column("jti", sa.String(length=64), nullable=False),
+        sa.Column("family_id", sa.Uuid(), nullable=False),
+        sa.Column("issued_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("user_agent", sa.String(length=255), nullable=True),
+        sa.Column("ip", sa.String(length=45), nullable=True),
+        sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("replaced_by_jti", sa.String(length=64), nullable=True),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    with op.batch_alter_table("refresh_tokens", schema=None) as batch_op:
+        batch_op.create_index("ix_refresh_tokens_family", ["family_id"], unique=False)
+        batch_op.create_index(batch_op.f("ix_refresh_tokens_jti"), ["jti"], unique=True)
+        batch_op.create_index("ix_refresh_tokens_user", ["user_id"], unique=False)
 
     op.create_table(
         "rooms",
@@ -196,6 +256,23 @@ def downgrade() -> None:
         batch_op.drop_index("ix_rooms_owner")
 
     op.drop_table("rooms")
+    with op.batch_alter_table("refresh_tokens", schema=None) as batch_op:
+        batch_op.drop_index("ix_refresh_tokens_user")
+        batch_op.drop_index(batch_op.f("ix_refresh_tokens_jti"))
+        batch_op.drop_index("ix_refresh_tokens_family")
+
+    op.drop_table("refresh_tokens")
+    with op.batch_alter_table("password_reset_tokens", schema=None) as batch_op:
+        batch_op.drop_index("ix_password_reset_tokens_user")
+        batch_op.drop_index("ix_password_reset_tokens_hash")
+
+    op.drop_table("password_reset_tokens")
+    with op.batch_alter_table("login_attempts", schema=None) as batch_op:
+        batch_op.drop_index("ix_login_attempts_user")
+        batch_op.drop_index("ix_login_attempts_email_time")
+        batch_op.drop_index(batch_op.f("ix_login_attempts_email"))
+
+    op.drop_table("login_attempts")
     with op.batch_alter_table("users", schema=None) as batch_op:
         batch_op.drop_index("ix_users_email")
 

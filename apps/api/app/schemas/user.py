@@ -18,8 +18,8 @@ class UserBase(BaseModel):
     email: EmailStr
     first_name: NameStr
     last_name: NameStr
-    gender: Gender = Gender.PREFER_NOT_TO_SAY
     age: Age
+    gender: Gender = Gender.PREFER_NOT_TO_SAY
 
 
 class UserCreate(UserBase):
@@ -29,8 +29,8 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     first_name: NameStr | None = None
     last_name: NameStr | None = None
-    gender: Gender | None = None
     age: Age | None = None
+    gender: Gender | None = None
 
 
 class UserRead(ORMModel):
@@ -41,6 +41,7 @@ class UserRead(ORMModel):
     gender: Gender
     age: int
     is_active: bool
+    last_login_at: datetime | None
     created_at: datetime
 
 

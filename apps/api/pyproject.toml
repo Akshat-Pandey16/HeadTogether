@@ -19,6 +19,8 @@ dependencies = [
     "email-validator>=2.2.0",
     "uvicorn[standard]>=0.34.0",
     "structlog>=25.1.0",
+    "slowapi>=0.1.9",
+    "zxcvbn>=4.5.0",
 ]
 
 [dependency-groups]
@@ -62,7 +64,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "alembic/**" = ["E501", "N999"]
-"app/core/config.py" = ["S104"]
+"app/core/config.py" = ["S104", "S105"]
 "app/schemas/auth.py" = ["S105"]
 
 [tool.ruff.format]
