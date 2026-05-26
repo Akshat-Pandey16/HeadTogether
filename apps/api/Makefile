@@ -1,4 +1,4 @@
-.PHONY: install dev run lint format check migrate revision reset-db clean
+.PHONY: install dev run scheduler redis-up redis-down lint format check migrate revision reset-db clean
 
 install:
 	uv sync --all-groups
@@ -8,6 +8,15 @@ dev:
 
 run:
 	uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+scheduler:
+	uv run python -m app.jobs
+
+redis-up:
+	docker compose up -d redis
+
+redis-down:
+	docker compose down
 
 lint:
 	uv run ruff check .

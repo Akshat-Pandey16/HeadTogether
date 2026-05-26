@@ -41,6 +41,14 @@ class Settings(BaseSettings):
     rate_limit_login: str = "10/minute"
     rate_limit_register: str = "5/minute"
     rate_limit_forgot_password: str = "5/minute"
+    rate_limit_send_message: str = "30/minute"
+
+    redis_url: str | None = None
+    presence_ttl_seconds: int = Field(default=30, ge=5)
+    typing_ttl_seconds: int = Field(default=8, ge=2)
+    ws_heartbeat_interval_seconds: int = Field(default=20, ge=5)
+    ws_max_connections_per_user: int = Field(default=5, ge=1)
+    message_edit_window_minutes: int = Field(default=15, ge=1)
 
     public_app_url: str = "http://localhost:5173"
 

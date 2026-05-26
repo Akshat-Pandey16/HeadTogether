@@ -12,11 +12,13 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.v1.router import api_router
+from app.api.v1.routes.ws import init_manager, shutdown_manager
 from app.core.config import settings
 from app.core.exceptions import AppError
 from app.core.logging import configure_logging, get_logger
 from app.core.rate_limit import limiter
 from app.db.session import engine
+from app.realtime.broker import close_broker, init_broker
 from app.schemas.common import ErrorResponse, HealthResponse
 
 configure_logging()
@@ -25,10 +27,14 @@ log = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    log.info("startup", env=settings.app_env, db=settings.database_url)
+    await init_broker()
+    init_manager()
+    log.info("startup", env=settings.app_env, db=settings.database_url, redis=settings.redis_url)
     try:
         yield
     finally:
+        await shutdown_manager()
+        await close_broker()
         await engine.dispose()
         log.info("shutdown")
 
@@ -65,9 +71,7 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(RequestValidationError)
     async def _handle_validation(_: Request, exc: RequestValidationError) -> JSONResponse:
-        safe_errors = [
-            {k: v for k, v in err.items() if k != "ctx"} for err in exc.errors()
-        ]
+        safe_errors = [{k: v for k, v in err.items() if k != "ctx"} for err in exc.errors()]
         return JSONResponse(
             status_code=422,
             content=jsonable_encoder(

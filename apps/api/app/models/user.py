@@ -12,7 +12,9 @@ from app.models.enums import Gender
 if TYPE_CHECKING:
     from app.models.auth import LoginAttempt, PasswordResetToken, RefreshToken
     from app.models.message import Message
+    from app.models.notifications import DeviceToken
     from app.models.room import Room, RoomMember
+    from app.models.tag import UserTag
 
 
 class User(Base, IdMixin, TimestampMixin):
@@ -30,6 +32,8 @@ class User(Base, IdMixin, TimestampMixin):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     last_login_ip: Mapped[str | None] = mapped_column(String(45), default=None)
+    avatar_url: Mapped[str | None] = mapped_column(String(500), default=None)
+    bio: Mapped[str | None] = mapped_column(String(500), default=None)
 
     owned_rooms: Mapped[list[Room]] = relationship(
         back_populates="owner",
@@ -48,6 +52,7 @@ class User(Base, IdMixin, TimestampMixin):
         cascade="all, delete-orphan",
         default_factory=list,
         init=False,
+        foreign_keys="Message.sender_id",
     )
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(
         back_populates="user",
@@ -62,6 +67,18 @@ class User(Base, IdMixin, TimestampMixin):
         init=False,
     )
     login_attempts: Mapped[list[LoginAttempt]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        default_factory=list,
+        init=False,
+    )
+    tags: Mapped[list[UserTag]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        default_factory=list,
+        init=False,
+    )
+    device_tokens: Mapped[list[DeviceToken]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         default_factory=list,

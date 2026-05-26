@@ -6,8 +6,9 @@ from uuid import UUID
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import selectinload
 
-from app.models.enums import RoomPurpose, RoomStatus, RoomVisibility
-from app.models.room import Room, RoomDetail, RoomMember
+from app.models.enums import MembershipState, RoomPurpose, RoomStatus, RoomVisibility
+from app.models.room import Room, RoomDetail, RoomEvent, RoomMember, SavedRoom
+from app.models.tag import RoomTag
 from app.models.user import User
 from app.repositories.base import AsyncRepository
 
@@ -20,11 +21,18 @@ class RoomRepository(AsyncRepository[Room]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_any(self, room_id: UUID) -> Room | None:
+        return await self.get(room_id)
+
     async def get_with_details(self, room_id: UUID) -> Room | None:
         stmt = (
             select(Room)
             .where(Room.id == room_id, Room.status != RoomStatus.DELETED)
-            .options(selectinload(Room.details), selectinload(Room.owner))
+            .options(
+                selectinload(Room.details),
+                selectinload(Room.owner),
+                selectinload(Room.tags).selectinload(RoomTag.tag),
+            )
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -48,13 +56,21 @@ class RoomRepository(AsyncRepository[Room]):
         return list(rows.scalars().all()), int(total or 0)
 
     async def list_for_member(
-        self, user_id: UUID, *, limit: int, offset: int
+        self,
+        user_id: UUID,
+        *,
+        limit: int,
+        offset: int,
+        include_archived: bool,
     ) -> tuple[list[Room], int]:
-        base = (
-            select(Room)
-            .join(RoomMember, RoomMember.room_id == Room.id)
-            .where(RoomMember.user_id == user_id, Room.status != RoomStatus.DELETED)
-        )
+        conditions = [
+            RoomMember.user_id == user_id,
+            RoomMember.state == MembershipState.ACTIVE,
+            Room.status != RoomStatus.DELETED,
+        ]
+        if not include_archived:
+            conditions.append(Room.status == RoomStatus.ACTIVE)
+        base = select(Room).join(RoomMember, RoomMember.room_id == Room.id).where(and_(*conditions))
         total = await self.session.scalar(select(func.count()).select_from(base.subquery()))
         rows = await self.session.execute(
             base.options(selectinload(Room.owner))
@@ -64,20 +80,64 @@ class RoomRepository(AsyncRepository[Room]):
         )
         return list(rows.scalars().all()), int(total or 0)
 
-    async def search_text(self, query: str, *, limit: int, offset: int) -> tuple[list[Room], int]:
-        like = f"%{query.strip()}%"
-        base = select(Room).where(
-            Room.status == RoomStatus.ACTIVE,
-            Room.visibility == RoomVisibility.PUBLIC,
-            Room.name.ilike(like),
+    async def list_past_for_member(
+        self, user_id: UUID, *, now: datetime, limit: int, offset: int
+    ) -> tuple[list[Room], int]:
+        base = (
+            select(Room)
+            .join(RoomMember, RoomMember.room_id == Room.id)
+            .where(
+                RoomMember.user_id == user_id,
+                Room.status != RoomStatus.DELETED,
+                or_(
+                    Room.ends_at.is_not(None) & (Room.ends_at < now),
+                    Room.status == RoomStatus.ARCHIVED,
+                ),
+            )
         )
         total = await self.session.scalar(select(func.count()).select_from(base.subquery()))
         rows = await self.session.execute(
             base.options(selectinload(Room.owner))
-            .order_by(Room.created_at.desc())
+            .order_by(Room.ends_at.desc().nulls_last())
             .limit(limit)
             .offset(offset)
         )
+        return list(rows.scalars().all()), int(total or 0)
+
+    async def search_text(
+        self,
+        *,
+        query: str,
+        actor_id: UUID,
+        purpose: RoomPurpose | None,
+        order_by: str,
+        limit: int,
+        offset: int,
+        excluded_user_ids: set[UUID],
+    ) -> tuple[list[Room], int]:
+        like = f"%{query.strip()}%"
+        conditions = [
+            Room.status == RoomStatus.ACTIVE,
+            Room.visibility == RoomVisibility.PUBLIC,
+            Room.name.ilike(like),
+        ]
+        if purpose is not None:
+            conditions.append(Room.purpose == purpose)
+        if excluded_user_ids:
+            conditions.append(Room.owner_id.notin_(excluded_user_ids))
+        base = select(Room).where(and_(*conditions))
+
+        total = await self.session.scalar(select(func.count()).select_from(base.subquery()))
+
+        ordered = base.options(selectinload(Room.owner))
+        if order_by == "starts_at":
+            ordered = ordered.order_by(Room.starts_at.asc().nulls_last(), Room.created_at.desc())
+        elif order_by == "members":
+            ordered = ordered.order_by(Room.created_at.desc())
+        else:
+            ordered = ordered.order_by(Room.created_at.desc())
+        rows = await self.session.execute(ordered.limit(limit).offset(offset))
+        _ = actor_id
         return list(rows.scalars().all()), int(total or 0)
 
     async def candidates_in_bbox(
@@ -89,16 +149,20 @@ class RoomRepository(AsyncRepository[Room]):
         lon_max: float,
         now: datetime,
         purpose: RoomPurpose | None = None,
+        excluded_user_ids: set[UUID] | None = None,
     ) -> list[Room]:
         conditions = [
             Room.status == RoomStatus.ACTIVE,
             Room.visibility == RoomVisibility.PUBLIC,
             or_(Room.expires_at.is_(None), Room.expires_at > now),
+            or_(Room.ends_at.is_(None), Room.ends_at > now),
             Room.latitude.between(lat_min, lat_max),
             Room.longitude.between(lon_min, lon_max),
         ]
         if purpose is not None:
             conditions.append(Room.purpose == purpose)
+        if excluded_user_ids:
+            conditions.append(Room.owner_id.notin_(excluded_user_ids))
         stmt = select(Room).where(and_(*conditions)).options(selectinload(Room.owner))
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
@@ -108,9 +172,12 @@ class RoomMemberRepository(AsyncRepository[RoomMember]):
     model = RoomMember
 
     async def list_for_room(
-        self, room_id: UUID, *, limit: int, offset: int
+        self, room_id: UUID, *, limit: int, offset: int, state: MembershipState | None
     ) -> tuple[list[RoomMember], int]:
-        base = select(RoomMember).where(RoomMember.room_id == room_id)
+        conditions = [RoomMember.room_id == room_id]
+        if state is not None:
+            conditions.append(RoomMember.state == state)
+        base = select(RoomMember).where(and_(*conditions))
         total = await self.session.scalar(select(func.count()).select_from(base.subquery()))
         rows = await self.session.execute(
             base.options(selectinload(RoomMember.user))
@@ -121,16 +188,80 @@ class RoomMemberRepository(AsyncRepository[RoomMember]):
         )
         return list(rows.scalars().all()), int(total or 0)
 
-    async def is_member(self, room_id: UUID, user_id: UUID) -> bool:
-        return await self.exists(room_id=room_id, user_id=user_id)
+    async def is_active_member(self, room_id: UUID, user_id: UUID) -> bool:
+        stmt = (
+            select(func.count())
+            .select_from(RoomMember)
+            .where(
+                RoomMember.room_id == room_id,
+                RoomMember.user_id == user_id,
+                RoomMember.state == MembershipState.ACTIVE,
+            )
+        )
+        return (await self.session.scalar(stmt) or 0) > 0
 
     async def get_member(self, room_id: UUID, user_id: UUID) -> RoomMember | None:
         return await self.get_by(room_id=room_id, user_id=user_id)
 
-    async def count_for_room(self, room_id: UUID) -> int:
-        stmt = select(func.count()).select_from(RoomMember).where(RoomMember.room_id == room_id)
+    async def count_active(self, room_id: UUID) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(RoomMember)
+            .where(
+                RoomMember.room_id == room_id,
+                RoomMember.state == MembershipState.ACTIVE,
+            )
+        )
         return int(await self.session.scalar(stmt) or 0)
+
+    async def first_waitlisted(self, room_id: UUID) -> RoomMember | None:
+        stmt = (
+            select(RoomMember)
+            .where(
+                RoomMember.room_id == room_id,
+                RoomMember.state == MembershipState.WAITLISTED,
+            )
+            .order_by(RoomMember.created_at.asc())
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
 
 
 class RoomDetailRepository(AsyncRepository[RoomDetail]):
     model = RoomDetail
+
+
+class SavedRoomRepository(AsyncRepository[SavedRoom]):
+    model = SavedRoom
+
+    async def list_for_user(
+        self, user_id: UUID, *, limit: int, offset: int
+    ) -> tuple[list[Room], int]:
+        base = (
+            select(Room)
+            .join(SavedRoom, SavedRoom.room_id == Room.id)
+            .where(SavedRoom.user_id == user_id, Room.status != RoomStatus.DELETED)
+        )
+        total = await self.session.scalar(select(func.count()).select_from(base.subquery()))
+        rows = await self.session.execute(
+            base.options(selectinload(Room.owner))
+            .order_by(SavedRoom.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(rows.scalars().all()), int(total or 0)
+
+
+class RoomEventRepository(AsyncRepository[RoomEvent]):
+    model = RoomEvent
+
+    async def list_for_room(
+        self, room_id: UUID, *, limit: int, offset: int
+    ) -> tuple[list[RoomEvent], int]:
+        base = select(RoomEvent).where(RoomEvent.room_id == room_id)
+        total = await self.session.scalar(select(func.count()).select_from(base.subquery()))
+        rows = await self.session.execute(
+            base.order_by(RoomEvent.created_at.desc()).limit(limit).offset(offset)
+        )
+        return list(rows.scalars().all()), int(total or 0)

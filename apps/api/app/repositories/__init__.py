@@ -3,17 +3,40 @@ from app.repositories.auth import (
     PasswordResetTokenRepository,
     RefreshTokenRepository,
 )
-from app.repositories.message import MessageRepository
-from app.repositories.room import RoomDetailRepository, RoomMemberRepository, RoomRepository
+from app.repositories.message import (
+    MessageReactionRepository,
+    MessageRepository,
+    RoomReadStateRepository,
+)
+from app.repositories.moderation import BlockRepository, ReportRepository
+from app.repositories.notifications import DeviceTokenRepository
+from app.repositories.room import (
+    RoomDetailRepository,
+    RoomEventRepository,
+    RoomMemberRepository,
+    RoomRepository,
+    SavedRoomRepository,
+)
+from app.repositories.tag import RoomTagRepository, TagRepository, UserTagRepository
 from app.repositories.user import UserRepository
 
 __all__ = [
+    "BlockRepository",
+    "DeviceTokenRepository",
     "LoginAttemptRepository",
+    "MessageReactionRepository",
     "MessageRepository",
     "PasswordResetTokenRepository",
     "RefreshTokenRepository",
+    "ReportRepository",
     "RoomDetailRepository",
+    "RoomEventRepository",
     "RoomMemberRepository",
+    "RoomReadStateRepository",
     "RoomRepository",
+    "RoomTagRepository",
+    "SavedRoomRepository",
+    "TagRepository",
     "UserRepository",
+    "UserTagRepository",
 ]

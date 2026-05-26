@@ -10,7 +10,10 @@ from app.core.config import settings
 from app.db.session import get_session
 from app.models.user import User
 from app.services.auth import AuthService
+from app.services.dm import DMService
 from app.services.message import MessageService
+from app.services.moderation import ModerationService
+from app.services.notifications import NotificationService
 from app.services.password_reset import PasswordResetService
 from app.services.room import RoomService
 from app.services.user import UserService
@@ -45,6 +48,18 @@ def get_message_service(session: SessionDep) -> MessageService:
     return MessageService(session)
 
 
+def get_moderation_service(session: SessionDep) -> ModerationService:
+    return ModerationService(session)
+
+
+def get_notification_service(session: SessionDep) -> NotificationService:
+    return NotificationService(session)
+
+
+def get_dm_service(session: SessionDep) -> DMService:
+    return DMService(session)
+
+
 def get_request_client(request: Request) -> ClientInfo:
     return get_client_info(request)
 
@@ -54,6 +69,9 @@ UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 PasswordResetServiceDep = Annotated[PasswordResetService, Depends(get_password_reset_service)]
 RoomServiceDep = Annotated[RoomService, Depends(get_room_service)]
 MessageServiceDep = Annotated[MessageService, Depends(get_message_service)]
+ModerationServiceDep = Annotated[ModerationService, Depends(get_moderation_service)]
+NotificationServiceDep = Annotated[NotificationService, Depends(get_notification_service)]
+DMServiceDep = Annotated[DMService, Depends(get_dm_service)]
 ClientInfoDep = Annotated[ClientInfo, Depends(get_request_client)]
 
 

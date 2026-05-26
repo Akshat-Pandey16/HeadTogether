@@ -1,8 +1,8 @@
-"""rooms_v2_status_visibility_invite_capacity
+"""chat_v2_reactions_edits_read_state_pin
 
-Revision ID: e743f90bb5e0
+Revision ID: a87fb929a095
 Revises:
-Create Date: 2026-05-26 12:41:41.246149
+Create Date: 2026-05-26 13:01:17.313259
 
 """
 
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from alembic import op
 
 
-revision: str = "e743f90bb5e0"
+revision: str = "a87fb929a095"
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -63,7 +63,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     with op.batch_alter_table("users", schema=None) as batch_op:
-        batch_op.create_index("ix_users_email", ["email"], unique=True)
+        batch_op.create_index(batch_op.f("ix_users_email"), ["email"], unique=True)
 
     op.create_table(
         "login_attempts",
@@ -118,7 +118,7 @@ def upgrade() -> None:
     )
     with op.batch_alter_table("refresh_tokens", schema=None) as batch_op:
         batch_op.create_index("ix_refresh_tokens_family", ["family_id"], unique=False)
-        batch_op.create_index(batch_op.f("ix_refresh_tokens_jti"), ["jti"], unique=True)
+        batch_op.create_index("ix_refresh_tokens_jti", ["jti"], unique=True)
         batch_op.create_index("ix_refresh_tokens_user", ["user_id"], unique=False)
 
     op.create_table(
@@ -194,6 +194,17 @@ def upgrade() -> None:
         sa.Column("room_id", sa.Uuid(), nullable=False),
         sa.Column("sender_id", sa.Uuid(), nullable=False),
         sa.Column("body", sa.String(length=4000), nullable=False),
+        sa.Column(
+            "message_type",
+            sa.Enum("text", "system", name="messagetype", native_enum=False, length=32),
+            nullable=False,
+        ),
+        sa.Column("client_message_id", sa.String(length=64), nullable=True),
+        sa.Column("parent_message_id", sa.Uuid(), nullable=True),
+        sa.Column("edited_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("pinned_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("pinned_by_id", sa.Uuid(), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column(
             "created_at",
@@ -207,12 +218,24 @@ def upgrade() -> None:
             server_default=sa.text("(CURRENT_TIMESTAMP)"),
             nullable=False,
         ),
+        sa.ForeignKeyConstraint(["parent_message_id"], ["messages.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["pinned_by_id"], ["users.id"], ondelete="SET NULL"),
         sa.ForeignKeyConstraint(["room_id"], ["rooms.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["sender_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     with op.batch_alter_table("messages", schema=None) as batch_op:
+        batch_op.create_index(
+            "ix_messages_idempotency",
+            ["room_id", "sender_id", "client_message_id"],
+            unique=True,
+            sqlite_where=None,
+        )
+        batch_op.create_index("ix_messages_pinned", ["room_id", "pinned_at"], unique=False)
         batch_op.create_index("ix_messages_room_created", ["room_id", "created_at"], unique=False)
+        batch_op.create_index(
+            "ix_messages_room_id_created", ["room_id", "id", "created_at"], unique=False
+        )
         batch_op.create_index("ix_messages_sender", ["sender_id"], unique=False)
 
     op.create_table(
@@ -255,11 +278,41 @@ def upgrade() -> None:
     with op.batch_alter_table("room_members", schema=None) as batch_op:
         batch_op.create_index("ix_room_members_user", ["user_id"], unique=False)
 
+    op.create_table(
+        "message_reactions",
+        sa.Column("message_id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column("emoji", sa.String(length=16), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(["message_id"], ["messages.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("message_id", "user_id", "emoji"),
+        sa.UniqueConstraint("message_id", "user_id", "emoji", name="uq_message_reactions"),
+    )
+    with op.batch_alter_table("message_reactions", schema=None) as batch_op:
+        batch_op.create_index("ix_message_reactions_user", ["user_id"], unique=False)
+
+    op.create_table(
+        "room_read_states",
+        sa.Column("room_id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column("last_read_message_id", sa.Uuid(), nullable=True),
+        sa.Column("last_read_at", sa.DateTime(timezone=True), nullable=True),
+        sa.ForeignKeyConstraint(["last_read_message_id"], ["messages.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["room_id"], ["rooms.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("room_id", "user_id"),
+    )
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_table("room_read_states")
+    with op.batch_alter_table("message_reactions", schema=None) as batch_op:
+        batch_op.drop_index("ix_message_reactions_user")
+
+    op.drop_table("message_reactions")
     with op.batch_alter_table("room_members", schema=None) as batch_op:
         batch_op.drop_index("ix_room_members_user")
 
@@ -270,7 +323,10 @@ def downgrade() -> None:
     op.drop_table("room_details")
     with op.batch_alter_table("messages", schema=None) as batch_op:
         batch_op.drop_index("ix_messages_sender")
+        batch_op.drop_index("ix_messages_room_id_created")
         batch_op.drop_index("ix_messages_room_created")
+        batch_op.drop_index("ix_messages_pinned")
+        batch_op.drop_index("ix_messages_idempotency", sqlite_where=None)
 
     op.drop_table("messages")
     with op.batch_alter_table("rooms", schema=None) as batch_op:
@@ -282,7 +338,7 @@ def downgrade() -> None:
     op.drop_table("rooms")
     with op.batch_alter_table("refresh_tokens", schema=None) as batch_op:
         batch_op.drop_index("ix_refresh_tokens_user")
-        batch_op.drop_index(batch_op.f("ix_refresh_tokens_jti"))
+        batch_op.drop_index("ix_refresh_tokens_jti")
         batch_op.drop_index("ix_refresh_tokens_family")
 
     op.drop_table("refresh_tokens")
@@ -298,7 +354,7 @@ def downgrade() -> None:
 
     op.drop_table("login_attempts")
     with op.batch_alter_table("users", schema=None) as batch_op:
-        batch_op.drop_index("ix_users_email")
+        batch_op.drop_index(batch_op.f("ix_users_email"))
 
     op.drop_table("users")
     # ### end Alembic commands ###

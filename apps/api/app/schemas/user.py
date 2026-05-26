@@ -8,10 +8,13 @@ from pydantic import BaseModel, EmailStr, Field
 
 from app.models.enums import Gender
 from app.schemas.common import ORMModel
+from app.schemas.tag import TagRead
 
 PasswordStr = Annotated[str, Field(min_length=8, max_length=128)]
 NameStr = Annotated[str, Field(min_length=1, max_length=80, strip_whitespace=True)]
 Age = Annotated[int, Field(ge=13, le=120)]
+BioStr = Annotated[str, Field(max_length=500, strip_whitespace=True)]
+AvatarUrl = Annotated[str, Field(max_length=500)]
 
 
 class UserBase(BaseModel):
@@ -31,6 +34,8 @@ class UserUpdate(BaseModel):
     last_name: NameStr | None = None
     age: Age | None = None
     gender: Gender | None = None
+    bio: BioStr | None = None
+    avatar_url: AvatarUrl | None = None
 
 
 class UserRead(ORMModel):
@@ -42,6 +47,8 @@ class UserRead(ORMModel):
     age: int
     is_active: bool
     last_login_at: datetime | None
+    avatar_url: str | None
+    bio: str | None
     created_at: datetime
 
 
@@ -51,3 +58,9 @@ class UserPublic(ORMModel):
     last_name: str
     gender: Gender
     age: int
+    avatar_url: str | None
+    bio: str | None
+
+
+class UserProfile(UserPublic):
+    tags: list[TagRead] = Field(default_factory=list)
