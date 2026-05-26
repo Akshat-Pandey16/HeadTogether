@@ -1,14 +1,20 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Archive,
   Bookmark,
   BookmarkCheck,
+  CalendarClock,
+  Copy,
+  Hourglass,
   LogOut,
   MapPin,
   MessageSquare,
+  RefreshCw,
+  RotateCcw,
   Shield,
   Trash2,
+  Undo2,
   Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -28,15 +34,31 @@ import { useGeolocation } from "@/hooks/use-geolocation";
 import { errorMessage } from "@/lib/api-error";
 import { useAuth } from "@/providers/auth-provider";
 import { useRoomSocket } from "@/features/chat/use-room-socket";
+import { EditRoomDialog } from "./edit-room-dialog";
+import { RoomDetailsPanel } from "./room-details-panel";
+import { RoomEventsPanel } from "./room-events-panel";
 import { RoomMembersPanel } from "./room-members-panel";
+import { TransferOwnershipDialog } from "./transfer-ownership-dialog";
 import {
   useArchiveRoom,
   useDeleteRoom,
   useJoinRoom,
   useLeaveRoom,
+  useReactivateRoom,
+  useRestoreRoom,
   useRoom,
+  useRotateInviteCode,
   useSaveRoom,
 } from "./room-queries";
+
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 export const RoomDetailPage = () => {
   const { roomId = "" } = useParams();
@@ -48,7 +70,11 @@ export const RoomDetailPage = () => {
   const leaveRoom = useLeaveRoom();
   const saveRoom = useSaveRoom();
   const archive = useArchiveRoom();
+  const reactivate = useReactivateRoom();
+  const restore = useRestoreRoom();
   const remove = useDeleteRoom();
+  const rotateInvite = useRotateInviteCode(roomId);
+  const [confirmRotate, setConfirmRotate] = useState(false);
 
   const isOwner = useMemo(() => room.data?.owner_id === user?.id, [room.data, user?.id]);
   useRoomSocket(room.data?.is_member ? roomId : "");
@@ -57,6 +83,7 @@ export const RoomDetailPage = () => {
   if (!room.data) return <div className="p-10 text-center text-muted-foreground">Not found.</div>;
 
   const r = room.data;
+  const canManage = r.is_owner || r.role === "moderator";
 
   const handleJoin = async () => {
     if (!coords) {
@@ -96,16 +123,51 @@ export const RoomDetailPage = () => {
     }
   };
 
+  const copyInvite = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      toast({ title: "Invite code copied" });
+    } catch {
+      toast({ variant: "destructive", title: "Couldn't copy" });
+    }
+  };
+
+  const handleRotateInvite = async () => {
+    if (!confirmRotate) {
+      setConfirmRotate(true);
+      return;
+    }
+    try {
+      await rotateInvite.mutateAsync();
+      toast({ title: "New invite code generated" });
+    } catch (e) {
+      toast({ variant: "destructive", description: errorMessage(e) });
+    } finally {
+      setConfirmRotate(false);
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6 md:px-6">
+      {r.cover_photo_url && (
+        <div className="aspect-[3/1] w-full overflow-hidden rounded-xl bg-muted">
+          <img
+            src={r.cover_photo_url}
+            alt={r.name}
+            className="h-full w-full object-cover"
+          />
+        </div>
+      )}
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight">{r.name}</h1>
             <Badge variant="secondary">
               {r.purpose === "custom" && r.custom_purpose ? r.custom_purpose : r.purpose}
             </Badge>
             {r.status !== "active" && <Badge variant="outline">{r.status}</Badge>}
+            <Badge variant="outline">{r.visibility}</Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             {r.description ?? "No description provided."}
@@ -164,7 +226,18 @@ export const RoomDetailPage = () => {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{r.member_count}</p>
-            <p className="text-xs text-muted-foreground">of {r.max_members} allowed</p>
+            <p className="text-xs text-muted-foreground">
+              of {r.max_members} allowed
+              {r.waitlist_count > 0 && (
+                <>
+                  {" · "}
+                  <span className="inline-flex items-center gap-1">
+                    <Hourglass className="h-3 w-3" />
+                    {r.waitlist_count} waitlisted
+                  </span>
+                </>
+              )}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -182,35 +255,71 @@ export const RoomDetailPage = () => {
         </Card>
       </div>
 
+      {(r.starts_at || r.ends_at || r.expires_at) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <CalendarClock className="h-4 w-4" /> Schedule
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            {r.starts_at && (
+              <p>
+                <span className="text-muted-foreground">Starts: </span>
+                {formatDate(r.starts_at)}
+              </p>
+            )}
+            {r.ends_at && (
+              <p>
+                <span className="text-muted-foreground">Ends: </span>
+                {formatDate(r.ends_at)}
+              </p>
+            )}
+            {r.expires_at && (
+              <p>
+                <span className="text-muted-foreground">Auto-expires: </span>
+                {formatDate(r.expires_at)}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="about">
         <TabsList>
           <TabsTrigger value="about">About</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
-          {(r.is_owner || r.role === "moderator") && (
-            <TabsTrigger value="admin">Admin</TabsTrigger>
-          )}
+          {r.is_member && <TabsTrigger value="activity">Activity</TabsTrigger>}
+          {canManage && <TabsTrigger value="admin">Admin</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="about" className="space-y-4">
-          {r.details.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No additional details added.</p>
-          ) : (
-            r.details.map((d) => (
-              <Card key={d.id}>
-                <CardHeader>
-                  <CardTitle className="text-base">{d.heading}</CardTitle>
-                </CardHeader>
-                <CardContent className="whitespace-pre-wrap text-sm">{d.body}</CardContent>
-              </Card>
-            ))
-          )}
+          <RoomDetailsPanel roomId={r.id} details={r.details} canManage={canManage} />
           {r.invite_code && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Invite code</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex flex-wrap items-center gap-2">
                 <code className="rounded bg-muted px-2 py-1 text-sm">{r.invite_code}</code>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyInvite(r.invite_code as string)}
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copy
+                </Button>
+                {r.is_owner && (
+                  <Button
+                    variant={confirmRotate ? "destructive" : "ghost"}
+                    size="sm"
+                    onClick={handleRotateInvite}
+                    disabled={rotateInvite.isPending}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    {confirmRotate ? "Confirm rotate" : "Rotate"}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
@@ -220,7 +329,13 @@ export const RoomDetailPage = () => {
           <RoomMembersPanel roomId={r.id} isOwner={r.is_owner} role={r.role} />
         </TabsContent>
 
-        {(r.is_owner || r.role === "moderator") && (
+        {r.is_member && (
+          <TabsContent value="activity">
+            <RoomEventsPanel roomId={r.id} />
+          </TabsContent>
+        )}
+
+        {canManage && (
           <TabsContent value="admin" className="space-y-3">
             <Card>
               <CardHeader>
@@ -235,14 +350,36 @@ export const RoomDetailPage = () => {
                 </p>
                 <Separator />
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => archive.mutate(r.id)}
-                    disabled={archive.isPending}
-                  >
-                    <Archive className="h-4 w-4" /> Archive
-                  </Button>
-                  {r.is_owner && (
+                  <EditRoomDialog room={r} />
+                  {r.status === "active" && (
+                    <Button
+                      variant="outline"
+                      onClick={() => archive.mutate(r.id)}
+                      disabled={archive.isPending}
+                    >
+                      <Archive className="h-4 w-4" /> Archive
+                    </Button>
+                  )}
+                  {r.status === "archived" && (
+                    <Button
+                      variant="outline"
+                      onClick={() => reactivate.mutate(r.id)}
+                      disabled={reactivate.isPending}
+                    >
+                      <RefreshCw className="h-4 w-4" /> Reactivate
+                    </Button>
+                  )}
+                  {r.is_owner && r.status === "deleted" && (
+                    <Button
+                      variant="outline"
+                      onClick={() => restore.mutate(r.id)}
+                      disabled={restore.isPending}
+                    >
+                      <Undo2 className="h-4 w-4" /> Restore
+                    </Button>
+                  )}
+                  {r.is_owner && <TransferOwnershipDialog roomId={r.id} currentOwnerId={r.owner_id} />}
+                  {r.is_owner && r.status !== "deleted" && (
                     <Button
                       variant="destructive"
                       onClick={async () => {

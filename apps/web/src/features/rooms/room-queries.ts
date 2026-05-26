@@ -213,3 +213,75 @@ export const useJoinByCode = () => {
     onSuccess: () => invalidateRoomLists(qc),
   });
 };
+
+export const useReactivateRoom = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (roomId: string) => roomsApi.reactivate(roomId),
+    onSuccess: (_, roomId) => {
+      qc.invalidateQueries({ queryKey: roomKeys.detail(roomId) });
+      invalidateRoomLists(qc);
+    },
+  });
+};
+
+export const useRestoreRoom = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (roomId: string) => roomsApi.restore(roomId),
+    onSuccess: (_, roomId) => {
+      qc.invalidateQueries({ queryKey: roomKeys.detail(roomId) });
+      invalidateRoomLists(qc);
+    },
+  });
+};
+
+export const useTransferOwnership = (roomId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (new_owner_id: string) => roomsApi.transfer(roomId, new_owner_id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: roomKeys.detail(roomId) });
+      invalidateRoomLists(qc);
+    },
+  });
+};
+
+export const useRotateInviteCode = (roomId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => roomsApi.rotateInvite(roomId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: roomKeys.detail(roomId) }),
+  });
+};
+
+export const useAddRoomDetail = (roomId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { heading: string; body: string }) =>
+      roomsApi.addDetail(roomId, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: roomKeys.detail(roomId) }),
+  });
+};
+
+export const useUpdateRoomDetail = (roomId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      detailId,
+      payload,
+    }: {
+      detailId: string;
+      payload: Partial<{ heading: string; body: string }>;
+    }) => roomsApi.updateDetail(roomId, detailId, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: roomKeys.detail(roomId) }),
+  });
+};
+
+export const useDeleteRoomDetail = (roomId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (detailId: string) => roomsApi.deleteDetail(roomId, detailId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: roomKeys.detail(roomId) }),
+  });
+};

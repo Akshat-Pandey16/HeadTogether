@@ -23,6 +23,7 @@ import {
 } from "./chat-queries";
 import { MessageComposer } from "./message-composer";
 import { MessageItem } from "./message-item";
+import { MessageSearch } from "./message-search";
 import { useRoomSocket } from "./use-room-socket";
 
 export const ChatPage = () => {
@@ -104,11 +105,14 @@ export const ChatPage = () => {
             </p>
           </div>
         </div>
-        {pinned.data && pinned.data.length > 0 && (
-          <Badge variant="outline" className="gap-1">
-            <Pin className="h-3 w-3" /> {pinned.data.length}
-          </Badge>
-        )}
+        <div className="flex items-center gap-1">
+          {pinned.data && pinned.data.length > 0 && (
+            <Badge variant="outline" className="gap-1">
+              <Pin className="h-3 w-3" /> {pinned.data.length}
+            </Badge>
+          )}
+          <MessageSearch roomId={roomId} />
+        </div>
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3">

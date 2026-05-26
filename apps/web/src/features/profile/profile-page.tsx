@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
-import { Flag, MessageCircle, Shield, UserMinus } from "lucide-react";
+import { MessageCircle, Shield, ShieldOff, UserPen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,13 +11,15 @@ import { toast } from "@/components/ui/toaster";
 import { dmsApi, moderationApi, usersApi } from "@/lib/api";
 import { errorMessage } from "@/lib/api-error";
 import { useAuth } from "@/providers/auth-provider";
-import { ReportReason, ReportTarget } from "@/types";
+import { ReportTarget } from "@/types";
+import { ReportDialog } from "@/features/moderation/report-dialog";
 
 export const ProfilePage = () => {
   const { userId = "" } = useParams();
   const navigate = useNavigate();
   const { user: me } = useAuth();
   const qc = useQueryClient();
+  const [isBlocked, setIsBlocked] = useState(false);
 
   const profile = useQuery({
     queryKey: ["users", userId],
@@ -26,17 +29,18 @@ export const ProfilePage = () => {
 
   const block = useMutation({
     mutationFn: () => moderationApi.block(userId),
-    onSuccess: () => toast({ title: "User blocked" }),
+    onSuccess: () => {
+      setIsBlocked(true);
+      toast({ title: "User blocked" });
+    },
     onError: (e) => toast({ variant: "destructive", description: errorMessage(e) }),
   });
-  const report = useMutation({
-    mutationFn: () =>
-      moderationApi.report({
-        target_type: ReportTarget.USER,
-        target_id: userId,
-        reason: ReportReason.OTHER,
-      }),
-    onSuccess: () => toast({ title: "Report submitted" }),
+  const unblock = useMutation({
+    mutationFn: () => moderationApi.unblock(userId),
+    onSuccess: () => {
+      setIsBlocked(false);
+      toast({ title: "User unblocked" });
+    },
     onError: (e) => toast({ variant: "destructive", description: errorMessage(e) }),
   });
   const startDm = useMutation({
@@ -53,6 +57,7 @@ export const ProfilePage = () => {
 
   const isMe = me?.id === userId;
   const u = profile.data;
+  const blockPending = block.isPending || unblock.isPending;
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-6 md:px-6">
@@ -63,7 +68,9 @@ export const ProfilePage = () => {
             <h1 className="truncate text-xl font-semibold">
               {u.first_name} {u.last_name}
             </h1>
-            <p className="text-xs uppercase text-muted-foreground">{u.gender} · {u.age}</p>
+            <p className="text-xs uppercase text-muted-foreground">
+              {u.gender} · {u.age}
+            </p>
             {u.bio && <p className="mt-2 text-sm text-muted-foreground">{u.bio}</p>}
           </div>
         </CardContent>
@@ -89,24 +96,30 @@ export const ProfilePage = () => {
           <Button onClick={() => startDm.mutate()} disabled={startDm.isPending}>
             <MessageCircle className="h-4 w-4" /> Message
           </Button>
-          <Button variant="outline" onClick={() => block.mutate()} disabled={block.isPending}>
-            <Shield className="h-4 w-4" /> Block
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              if (window.confirm("Report this user?")) report.mutate();
-            }}
-            disabled={report.isPending}
-          >
-            <Flag className="h-4 w-4" /> Report
-          </Button>
+          {isBlocked ? (
+            <Button
+              variant="outline"
+              onClick={() => unblock.mutate()}
+              disabled={blockPending}
+            >
+              <ShieldOff className="h-4 w-4" /> Unblock
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => block.mutate()}
+              disabled={blockPending}
+            >
+              <Shield className="h-4 w-4" /> Block
+            </Button>
+          )}
+          <ReportDialog targetType={ReportTarget.USER} targetId={userId} />
         </div>
       )}
 
       {isMe && (
         <Button variant="outline" onClick={() => navigate("/settings")}>
-          <UserMinus className="h-4 w-4" /> Edit my profile
+          <UserPen className="h-4 w-4" /> Edit my profile
         </Button>
       )}
     </div>

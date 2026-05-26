@@ -120,6 +120,17 @@ export const useRoomSocket = (roomId: string): Result => {
             queryClient.invalidateQueries({ queryKey: roomKeys.detail(roomId) });
             break;
           }
+          case WsEvent.ROOM_UPDATED:
+          case WsEvent.ROOM_ARCHIVED:
+          case WsEvent.ROOM_DELETED: {
+            queryClient.invalidateQueries({ queryKey: roomKeys.detail(roomId) });
+            queryClient.invalidateQueries({ queryKey: roomKeys.all });
+            break;
+          }
+          case WsEvent.READ_UPDATED: {
+            queryClient.invalidateQueries({ queryKey: chatKeys.unread(roomId) });
+            break;
+          }
           case WsEvent.RECOVERY: {
             const raw = (msg.data?.messages as Message[]) ?? [];
             if (raw.length === 0) break;

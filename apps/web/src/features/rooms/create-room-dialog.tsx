@@ -36,6 +36,13 @@ const purposes: { value: RoomPurpose; label: string }[] = [
   { value: RoomPurpose.CUSTOM, label: "Custom" },
 ];
 
+const toIso = (value: string): string | undefined => {
+  if (!value) return undefined;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return undefined;
+  return d.toISOString();
+};
+
 export const CreateRoomDialog = () => {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
@@ -49,6 +56,10 @@ export const CreateRoomDialog = () => {
   const [visibility, setVisibility] = useState<RoomVisibility>(RoomVisibility.PUBLIC);
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
+  const [coverPhotoUrl, setCoverPhotoUrl] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
 
   const reset = () => {
     setName("");
@@ -59,6 +70,10 @@ export const CreateRoomDialog = () => {
     setVisibility(RoomVisibility.PUBLIC);
     setDescription("");
     setTags("");
+    setCoverPhotoUrl("");
+    setStartsAt("");
+    setEndsAt("");
+    setExpiresAt("");
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -83,6 +98,10 @@ export const CreateRoomDialog = () => {
         max_members: maxMembers,
         visibility,
         description: description || undefined,
+        cover_photo_url: coverPhotoUrl || undefined,
+        starts_at: toIso(startsAt),
+        ends_at: toIso(endsAt),
+        expires_at: toIso(expiresAt),
         tags: tags
           .split(",")
           .map((t) => t.trim())
@@ -110,7 +129,7 @@ export const CreateRoomDialog = () => {
           <Plus className="h-4 w-4" /> New room
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create a room</DialogTitle>
           <DialogDescription>
@@ -205,6 +224,46 @@ export const CreateRoomDialog = () => {
               onChange={(e) => setDescription(e.target.value)}
               maxLength={1000}
               placeholder="What's the plan?"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cover_photo">Cover photo URL</Label>
+            <Input
+              id="cover_photo"
+              type="url"
+              value={coverPhotoUrl}
+              onChange={(e) => setCoverPhotoUrl(e.target.value)}
+              placeholder="https://…"
+              maxLength={500}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="starts_at">Starts at</Label>
+              <Input
+                id="starts_at"
+                type="datetime-local"
+                value={startsAt}
+                onChange={(e) => setStartsAt(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ends_at">Ends at</Label>
+              <Input
+                id="ends_at"
+                type="datetime-local"
+                value={endsAt}
+                onChange={(e) => setEndsAt(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="expires_at">Auto-expire at (optional)</Label>
+            <Input
+              id="expires_at"
+              type="datetime-local"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
             />
           </div>
           <div className="space-y-2">

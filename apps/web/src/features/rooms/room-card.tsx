@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Bookmark, MapPin, Users } from "lucide-react";
+import { Bookmark, CalendarClock, MapPin, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -11,17 +11,38 @@ type Props = { room: RoomSummary | NearbyRoom };
 const purposeLabel = (p: string, custom?: string | null) =>
   p === "custom" && custom ? custom : p.charAt(0).toUpperCase() + p.slice(1);
 
+const formatStart = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
 export const RoomCard = ({ room }: Props) => {
   const distance = "distance_km" in room ? room.distance_km : null;
   return (
     <Link to={`/rooms/${room.id}`} className="block group">
       <Card className="transition group-hover:border-foreground/30 group-hover:shadow-md">
+        {room.cover_photo_url && (
+          <div className="aspect-video w-full overflow-hidden rounded-t-xl bg-muted">
+            <img
+              src={room.cover_photo_url}
+              alt={room.name}
+              loading="lazy"
+              className="h-full w-full object-cover transition group-hover:scale-105"
+            />
+          </div>
+        )}
         <CardContent className="space-y-3 p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate text-base font-semibold">{room.name}</p>
               <p className="text-xs text-muted-foreground">
                 {purposeLabel(room.purpose, room.custom_purpose)}
+                {room.status !== "active" && (
+                  <span className="ml-1 capitalize">· {room.status}</span>
+                )}
               </p>
             </div>
             <div className="flex items-center gap-1">
@@ -41,6 +62,12 @@ export const RoomCard = ({ room }: Props) => {
               <MapPin className="h-3.5 w-3.5" />
               {distance !== null ? `${distance.toFixed(1)} km` : `${room.radius_km} km radius`}
             </span>
+            {room.starts_at && (
+              <span className="inline-flex items-center gap-1">
+                <CalendarClock className="h-3.5 w-3.5" />
+                {formatStart(room.starts_at)}
+              </span>
+            )}
             <span className="inline-flex items-center gap-2">
               <UserAvatar user={room.owner} className="h-5 w-5" />
               <span className="truncate">
