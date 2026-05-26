@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -66,11 +67,14 @@ def create_app() -> FastAPI:
     async def _handle_validation(_: Request, exc: RequestValidationError) -> JSONResponse:
         return JSONResponse(
             status_code=422,
-            content=ErrorResponse(
-                code="validation_error",
-                message="Request validation failed",
-                details={"errors": exc.errors()},
-            ).model_dump(),
+            content=jsonable_encoder(
+                ErrorResponse(
+                    code="validation_error",
+                    message="Request validation failed",
+                    details={"errors": exc.errors()},
+                ),
+                custom_encoder={Exception: str},
+            ),
         )
 
     @app.exception_handler(RateLimitExceeded)

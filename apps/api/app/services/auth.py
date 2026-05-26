@@ -241,9 +241,7 @@ class AuthService:
     ) -> None:
         user.failed_login_count += 1
         if user.failed_login_count >= settings.login_max_failed_attempts:
-            user.locked_until = utc_now() + timedelta(
-                minutes=settings.login_lockout_minutes
-            )
+            user.locked_until = utc_now() + timedelta(minutes=settings.login_lockout_minutes)
             log.warning(
                 "auth.lockout",
                 user_id=str(user.id),

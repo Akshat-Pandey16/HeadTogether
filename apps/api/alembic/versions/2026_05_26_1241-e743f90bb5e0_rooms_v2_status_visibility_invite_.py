@@ -1,8 +1,8 @@
-"""auth schema with refresh, password reset, lockout, audit
+"""rooms_v2_status_visibility_invite_capacity
 
-Revision ID: fbef8597ea4a
+Revision ID: e743f90bb5e0
 Revises:
-Create Date: 2026-05-26 12:24:11.803455
+Create Date: 2026-05-26 12:41:41.246149
 
 """
 
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from alembic import op
 
 
-revision: str = "fbef8597ea4a"
+revision: str = "e743f90bb5e0"
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -143,7 +143,22 @@ def upgrade() -> None:
         sa.Column("latitude", sa.Float(), nullable=False),
         sa.Column("longitude", sa.Float(), nullable=False),
         sa.Column("radius_km", sa.Float(), nullable=False),
-        sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column("custom_purpose", sa.String(length=60), nullable=True),
+        sa.Column("max_members", sa.SmallInteger(), nullable=False),
+        sa.Column(
+            "visibility",
+            sa.Enum("public", "private", name="roomvisibility", native_enum=False, length=32),
+            nullable=False,
+        ),
+        sa.Column(
+            "status",
+            sa.Enum(
+                "active", "archived", "deleted", name="roomstatus", native_enum=False, length=32
+            ),
+            nullable=False,
+        ),
+        sa.Column("invite_code", sa.String(length=24), nullable=True),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column(
             "created_at",
@@ -159,13 +174,20 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint("latitude BETWEEN -90 AND 90", name="ck_rooms_latitude"),
         sa.CheckConstraint("longitude BETWEEN -180 AND 180", name="ck_rooms_longitude"),
+        sa.CheckConstraint("max_members > 0 AND max_members <= 500", name="ck_rooms_max_members"),
         sa.CheckConstraint("radius_km > 0 AND radius_km <= 200", name="ck_rooms_radius"),
         sa.ForeignKeyConstraint(["owner_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     with op.batch_alter_table("rooms", schema=None) as batch_op:
+        batch_op.create_index("ix_rooms_invite_code", ["invite_code"], unique=True)
         batch_op.create_index("ix_rooms_owner", ["owner_id"], unique=False)
         batch_op.create_index(batch_op.f("ix_rooms_owner_id"), ["owner_id"], unique=False)
+        batch_op.create_index(
+            "ix_rooms_status_visibility_geo",
+            ["status", "visibility", "latitude", "longitude"],
+            unique=False,
+        )
 
     op.create_table(
         "messages",
@@ -252,8 +274,10 @@ def downgrade() -> None:
 
     op.drop_table("messages")
     with op.batch_alter_table("rooms", schema=None) as batch_op:
+        batch_op.drop_index("ix_rooms_status_visibility_geo")
         batch_op.drop_index(batch_op.f("ix_rooms_owner_id"))
         batch_op.drop_index("ix_rooms_owner")
+        batch_op.drop_index("ix_rooms_invite_code")
 
     op.drop_table("rooms")
     with op.batch_alter_table("refresh_tokens", schema=None) as batch_op:

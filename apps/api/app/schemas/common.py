@@ -31,3 +31,7 @@ class HealthResponse(BaseModel):
     status: str = "ok"
     app: str
     version: str
+
+
+class GenericMessage(BaseModel):
+    message: str

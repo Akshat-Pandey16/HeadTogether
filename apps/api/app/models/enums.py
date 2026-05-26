@@ -12,6 +12,17 @@ class RoomPurpose(StrEnum):
     CUSTOM = "custom"
 
 
+class RoomVisibility(StrEnum):
+    PUBLIC = "public"
+    PRIVATE = "private"
+
+
+class RoomStatus(StrEnum):
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+    DELETED = "deleted"
+
+
 class RoomRole(StrEnum):
     OWNER = "owner"
     MEMBER = "member"

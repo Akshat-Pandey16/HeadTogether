@@ -32,7 +32,3 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: PasswordStr
-
-
-class GenericMessage(BaseModel):
-    message: str

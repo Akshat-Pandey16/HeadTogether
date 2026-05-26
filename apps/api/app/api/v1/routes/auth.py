@@ -10,13 +10,13 @@ from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.schemas.auth import (
     ForgotPasswordRequest,
-    GenericMessage,
     LogoutRequest,
     PasswordChangeRequest,
     ResetPasswordRequest,
     TokenPair,
     TokenRefreshRequest,
 )
+from app.schemas.common import GenericMessage
 from app.schemas.user import UserCreate, UserRead
 
 router = APIRouter(prefix="/auth", tags=["auth"])
