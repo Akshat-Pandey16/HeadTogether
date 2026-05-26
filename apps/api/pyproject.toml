@@ -1,0 +1,73 @@
+[project]
+name = "headtogether-backend"
+version = "0.1.0"
+description = "HeadTogether backend: geo-bounded social rooms"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [{ name = "HeadTogether" }]
+dependencies = [
+    "fastapi[standard]>=0.136.1",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.1",
+    "sqlalchemy[asyncio]>=2.0.50",
+    "aiosqlite>=0.20.0",
+    "alembic>=1.14.0",
+    "pyjwt[crypto]>=2.10.1",
+    "pwdlib[argon2]>=0.2.1",
+    "python-multipart>=0.0.20",
+    "email-validator>=2.2.0",
+    "uvicorn[standard]>=0.34.0",
+    "structlog>=25.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.9.0",
+    "ty>=0.0.1a4",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "I",
+    "B",
+    "C4",
+    "UP",
+    "SIM",
+    "RUF",
+    "ASYNC",
+    "S",
+    "T20",
+    "PT",
+    "TID",
+    "PL",
+    "N",
+]
+ignore = [
+    "PLR0913",
+    "PLR2004",
+    "B008",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"alembic/**" = ["E501", "N999"]
+"app/core/config.py" = ["S104"]
+"app/schemas/auth.py" = ["S105"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
