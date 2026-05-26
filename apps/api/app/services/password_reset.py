@@ -8,7 +8,6 @@ from app.core.config import settings
 from app.core.exceptions import AuthenticationError
 from app.core.logging import get_logger
 from app.core.security import (
-    ensure_password_strength,
     generate_opaque_token,
     hash_opaque_token,
     hash_password,
@@ -61,9 +60,6 @@ class PasswordResetService:
         user = await self.users.get(record.user_id)
         if user is None or not user.is_active:
             raise AuthenticationError("User no longer valid", code="invalid_user")
-        ensure_password_strength(
-            new_password, user_inputs=[user.email, user.first_name, user.last_name]
-        )
         user.hashed_password = hash_password(new_password)
         user.failed_login_count = 0
         user.locked_until = None

@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, status
 
-from app.api.deps import CurrentUser, UserServiceDep
+from app.deps import CurrentUser, UserServiceDep
 from app.schemas.tag import TagAssignRequest, TagRead
 from app.schemas.user import UserProfile, UserRead, UserUpdate
 

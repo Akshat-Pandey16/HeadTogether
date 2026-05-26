@@ -18,7 +18,6 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
-    ensure_password_strength,
     hash_password,
     verify_and_update_password,
 )
@@ -53,10 +52,6 @@ class AuthService:
         client: ClientInfo,
     ) -> User:
         email = payload.email.lower().strip()
-        ensure_password_strength(
-            payload.password,
-            user_inputs=[email, payload.first_name, payload.last_name],
-        )
         if await self.users.exists(email=email):
             raise ConflictError("Email already registered", code="email_taken")
         user = User(
@@ -188,9 +183,6 @@ class AuthService:
             raise AuthorizationError(
                 "Current password is incorrect", code="invalid_current_password"
             )
-        ensure_password_strength(
-            new_password, user_inputs=[user.email, user.first_name, user.last_name]
-        )
         user.hashed_password = hash_password(new_password)
         await self.refresh_tokens.revoke_all_for_user(user.id, utc_now())
         await self.session.commit()

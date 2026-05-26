@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1.routes import (
+from app.routes.v1 import (
     auth,
     dms,
     messages,

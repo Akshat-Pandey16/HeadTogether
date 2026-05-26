@@ -111,7 +111,7 @@ export const RegisterPage = () => {
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
-          <p className="text-xs text-muted-foreground">At least 8 characters, hard to guess.</p>
+          <p className="text-xs text-muted-foreground">At least 8 characters.</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">

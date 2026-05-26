@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, status
 
-from app.api.deps import CurrentUser, NotificationServiceDep
+from app.deps import CurrentUser, NotificationServiceDep
 from app.schemas.common import GenericMessage, Page
 from app.schemas.notifications import (
     DeviceTokenCreate,

@@ -11,14 +11,14 @@ from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from app.api.v1.router import api_router
-from app.api.v1.routes.ws import init_manager, shutdown_manager
 from app.core.config import settings
 from app.core.exceptions import AppError
 from app.core.logging import configure_logging, get_logger
 from app.core.rate_limit import limiter
 from app.db.session import engine
 from app.realtime.broker import close_broker, init_broker
+from app.routes.v1.router import api_router
+from app.routes.v1.ws import init_manager, shutdown_manager
 from app.schemas.common import ErrorResponse, HealthResponse
 
 configure_logging()
@@ -55,6 +55,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allow_origins,
+        allow_origin_regex=settings.cors_allow_origin_regex,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

@@ -5,9 +5,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.api.deps import AuthServiceDep, ClientInfoDep, CurrentUser, PasswordResetServiceDep
 from app.core.config import settings
 from app.core.rate_limit import limiter
+from app.deps import AuthServiceDep, ClientInfoDep, CurrentUser, PasswordResetServiceDep
 from app.schemas.auth import (
     ForgotPasswordRequest,
     LogoutRequest,

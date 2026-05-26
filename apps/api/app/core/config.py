@@ -31,8 +31,6 @@ class Settings(BaseSettings):
     jwt_access_token_ttl_minutes: int = Field(default=30, ge=1)
     jwt_refresh_token_ttl_days: int = Field(default=14, ge=1)
 
-    password_min_zxcvbn_score: int = Field(default=3, ge=0, le=4)
-
     login_max_failed_attempts: int = Field(default=5, ge=1)
     login_lockout_minutes: int = Field(default=15, ge=1)
 
@@ -55,6 +53,7 @@ class Settings(BaseSettings):
     cors_allow_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:5173"]
     )
+    cors_allow_origin_regex: str | None = None
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     log_json: bool = False

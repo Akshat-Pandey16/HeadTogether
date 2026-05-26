@@ -91,7 +91,8 @@ class ApiClient {
   }
 
   private buildUrl(path: string, query: RequestOptions["query"]): string {
-    const url = new URL(path.startsWith("http") ? path : `${this.baseUrl}${path}`);
+    const target = path.startsWith("http") ? path : `${this.baseUrl}${path}`;
+    const url = /^https?:\/\//.test(target) ? new URL(target) : new URL(target, window.location.origin);
     if (query) {
       for (const [k, v] of Object.entries(query)) {
         if (v === undefined || v === null || v === "") continue;

@@ -11,10 +11,9 @@ from uuid import uuid4
 
 import jwt
 from pwdlib import PasswordHash
-from zxcvbn import zxcvbn
 
 from app.core.config import settings
-from app.core.exceptions import AuthenticationError, ValidationError
+from app.core.exceptions import AuthenticationError
 
 _password_hasher: Final[PasswordHash] = PasswordHash.recommended()
 _OPAQUE_TOKEN_BYTES: Final[int] = 32
@@ -51,37 +50,6 @@ def verify_and_update_password(
     plain_password: str, hashed_password: str
 ) -> tuple[bool, str | None]:
     return _password_hasher.verify_and_update(plain_password, hashed_password)
-
-
-def assess_password_strength(
-    password: str,
-    *,
-    user_inputs: list[str] | None = None,
-) -> tuple[int, list[str]]:
-    result = zxcvbn(password, user_inputs=user_inputs or [])
-    score = int(result["score"])
-    feedback = result.get("feedback", {})
-    warnings = [feedback["warning"]] if feedback.get("warning") else []
-    warnings.extend(feedback.get("suggestions", []))
-    return score, warnings
-
-
-def ensure_password_strength(
-    password: str,
-    *,
-    user_inputs: list[str] | None = None,
-) -> None:
-    score, feedback = assess_password_strength(password, user_inputs=user_inputs)
-    if score < settings.password_min_zxcvbn_score:
-        raise ValidationError(
-            "Password is too weak",
-            code="password_too_weak",
-            details={
-                "score": score,
-                "minimum": settings.password_min_zxcvbn_score,
-                "feedback": feedback,
-            },
-        )
 
 
 def generate_opaque_token() -> OpaqueToken:

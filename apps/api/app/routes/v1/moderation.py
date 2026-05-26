@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, status
 
-from app.api.deps import CurrentUser, ModerationServiceDep
+from app.deps import CurrentUser, ModerationServiceDep
 from app.schemas.common import GenericMessage
 from app.schemas.moderation import BlockRequest, ReportCreate, ReportRead
 

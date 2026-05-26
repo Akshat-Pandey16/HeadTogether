@@ -2,18 +2,22 @@ from __future__ import annotations
 
 import logging
 import sys
+from typing import Any
 
 import structlog
 
 from app.core.config import settings
 
+_NOISY_LOGGERS = ("uvicorn.access", "sqlalchemy.engine.Engine", "watchfiles.main")
+
 
 def configure_logging() -> None:
-    timestamper = structlog.processors.TimeStamper(fmt="iso", utc=True)
+    timestamper = structlog.processors.TimeStamper(fmt="%H:%M:%S", utc=False)
 
-    shared_processors: list[structlog.types.Processor] = [
+    pre_chain: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,
-        structlog.processors.add_log_level,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.ExtraAdder(),
         timestamper,
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
@@ -22,27 +26,45 @@ def configure_logging() -> None:
     renderer: structlog.types.Processor = (
         structlog.processors.JSONRenderer()
         if settings.log_json
-        else structlog.dev.ConsoleRenderer(colors=sys.stderr.isatty())
+        else structlog.dev.ConsoleRenderer(
+            colors=True,
+            event_key="event",
+            timestamp_key="timestamp",
+            pad_event=28,
+            exception_formatter=structlog.dev.RichTracebackFormatter(
+                show_locals=False, width=120, max_frames=8
+            ),
+        )
     )
 
     structlog.configure(
-        processors=[*shared_processors, renderer],
-        wrapper_class=structlog.make_filtering_bound_logger(
-            logging.getLevelName(settings.log_level)
-        ),
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
+        processors=[
+            *pre_chain,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        wrapper_class=structlog.stdlib.BoundLogger,
+        logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
 
-    logging.basicConfig(
-        format="%(message)s",
-        stream=sys.stderr,
-        level=settings.log_level,
+    formatter = structlog.stdlib.ProcessorFormatter(
+        foreign_pre_chain=pre_chain,
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            renderer,
+        ],
     )
 
-    for noisy in ("uvicorn.access", "sqlalchemy.engine.Engine"):
-        logging.getLogger(noisy).setLevel(logging.WARNING)
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(formatter)
+
+    root = logging.getLogger()
+    root.handlers = [handler]
+    root.setLevel(settings.log_level)
+
+    for name in _NOISY_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
 
 
-def get_logger(name: str | None = None) -> structlog.types.FilteringBoundLogger:
+def get_logger(name: str | None = None) -> Any:
     return structlog.get_logger(name)

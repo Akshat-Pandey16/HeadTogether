@@ -20,7 +20,6 @@ dependencies = [
     "uvicorn[standard]>=0.34.0",
     "structlog>=25.1.0",
     "slowapi>=0.1.9",
-    "zxcvbn>=4.5.0",
     "redis[hiredis]>=5.2.0",
     "apscheduler>=3.10.4",
 ]
@@ -37,7 +36,7 @@ package = false
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-extend-exclude = ["alembic/versions"]
+extend-exclude = ["migrations/versions"]
 
 [tool.ruff.lint]
 select = [
@@ -65,10 +64,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"alembic/**" = ["E501", "N999"]
+"migrations/**" = ["E501", "N999"]
 "app/core/config.py" = ["S104", "S105"]
 "app/schemas/auth.py" = ["S105"]
-"app/api/v1/routes/ws.py" = ["PLR0912", "PLR0915"]
+"app/routes/v1/ws.py" = ["PLR0912", "PLR0915"]
 
 [tool.ruff.format]
 quote-style = "double"

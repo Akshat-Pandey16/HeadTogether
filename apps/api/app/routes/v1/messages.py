@@ -5,11 +5,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, Request, status
 
-from app.api.deps import CurrentUser, MessageServiceDep
-from app.api.v1.routes.ws import get_manager
 from app.core.config import settings
 from app.core.rate_limit import limiter
+from app.deps import CurrentUser, MessageServiceDep
 from app.realtime.events import WsEvent
+from app.routes.v1.ws import get_manager
 from app.schemas.common import GenericMessage, Page
 from app.schemas.message import (
     MarkReadRequest,

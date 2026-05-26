@@ -120,7 +120,11 @@ export class WsSocket {
 
   private buildUrl(): string {
     const base = env.wsBaseUrl.replace(/\/$/, "");
-    const url = new URL(`${base}${this.opts.path}`);
+    const target = `${base}${this.opts.path}`;
+    const absolute = /^wss?:\/\//.test(target)
+      ? target
+      : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}${target}`;
+    const url = new URL(absolute);
     url.searchParams.set("token", this.opts.token);
     if (this.opts.query) {
       for (const [k, v] of Object.entries(this.opts.query)) {

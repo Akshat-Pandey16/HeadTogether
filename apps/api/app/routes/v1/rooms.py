@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, status
 
-from app.api.deps import CurrentUser, RoomServiceDep
+from app.deps import CurrentUser, RoomServiceDep
 from app.models.enums import MembershipState, RoomPurpose
 from app.schemas.common import GenericMessage, Page
 from app.schemas.room import (

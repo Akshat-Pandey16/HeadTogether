@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, status
 
-from app.api.deps import CurrentUser, DMServiceDep
+from app.deps import CurrentUser, DMServiceDep
 from app.schemas.dm import CreateDMRequest
 from app.schemas.room import RoomRead
 
