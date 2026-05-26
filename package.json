@@ -4,9 +4,10 @@
   "version": "0.1.0",
   "workspaces": ["apps/web"],
   "scripts": {
-    "web:dev": "npm run dev --workspace @headtogether/web",
-    "web:build": "npm run build --workspace @headtogether/web",
-    "web:lint": "npm run lint --workspace @headtogether/web",
-    "web:typecheck": "npm run typecheck --workspace @headtogether/web"
-  }
+    "web:dev": "bun --filter @headtogether/web dev",
+    "web:build": "bun --filter @headtogether/web build",
+    "web:lint": "bun --filter @headtogether/web lint",
+    "web:typecheck": "bun --filter @headtogether/web typecheck"
+  },
+  "packageManager": "bun@1.2.4"
 }

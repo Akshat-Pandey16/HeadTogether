@@ -10,6 +10,9 @@ dist
 dist-ssr
 .vite
 *.local
+# bun
+.bun
+bunfig.toml.local
 
 # Python / backend
 __pycache__/
