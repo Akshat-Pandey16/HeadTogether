@@ -9,7 +9,7 @@ from app.repositories.message import (
     RoomReadStateRepository,
 )
 from app.repositories.moderation import BlockRepository, ReportRepository
-from app.repositories.notifications import DeviceTokenRepository
+from app.repositories.notifications import DeviceTokenRepository, NotificationRepository
 from app.repositories.room import (
     RoomDetailRepository,
     RoomEventRepository,
@@ -26,6 +26,7 @@ __all__ = [
     "LoginAttemptRepository",
     "MessageReactionRepository",
     "MessageRepository",
+    "NotificationRepository",
     "PasswordResetTokenRepository",
     "RefreshTokenRepository",
     "ReportRepository",

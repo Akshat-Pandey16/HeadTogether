@@ -23,7 +23,7 @@ class Broker(ABC):
     async def publish(self, channel: str, event: dict[str, Any]) -> None: ...
 
     @abstractmethod
-    def subscribe(self, channel: str) -> BrokerSubscription: ...
+    async def subscribe(self, channel: str) -> BrokerSubscription: ...
 
     @abstractmethod
     async def presence_join(self, room_id: str, user_id: str) -> None: ...
@@ -65,7 +65,7 @@ class InMemoryBroker(Broker):
         for queue in list(self._subscribers.get(channel, ())):
             queue.put_nowait(event)
 
-    def subscribe(self, channel: str) -> BrokerSubscription:
+    async def subscribe(self, channel: str) -> BrokerSubscription:
         queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self._subscribers[channel].add(queue)
         return _InMemorySubscription(self, channel, queue)
@@ -134,8 +134,9 @@ class RedisBroker(Broker):
     async def publish(self, channel: str, event: dict[str, Any]) -> None:
         await self._redis.publish(channel, json.dumps(event))
 
-    def subscribe(self, channel: str) -> BrokerSubscription:
+    async def subscribe(self, channel: str) -> BrokerSubscription:
         pubsub = self._redis.pubsub()
+        await pubsub.subscribe(channel)
         return _RedisSubscription(pubsub, channel)
 
     async def presence_join(self, room_id: str, user_id: str) -> None:
@@ -179,15 +180,11 @@ class _RedisSubscription(BrokerSubscription):
     def __init__(self, pubsub: aioredis.client.PubSub, channel: str) -> None:
         self._pubsub = pubsub
         self._channel = channel
-        self._subscribed = False
 
     def __aiter__(self) -> AsyncIterator[dict[str, Any]]:
         return self._iter()
 
     async def _iter(self) -> AsyncIterator[dict[str, Any]]:
-        if not self._subscribed:
-            await self._pubsub.subscribe(self._channel)
-            self._subscribed = True
         async for raw in self._pubsub.listen():
             if raw.get("type") != "message":
                 continue
@@ -243,3 +240,7 @@ def get_broker() -> Broker:
 
 def room_channel(room_id: str) -> str:
     return f"ht:room:{room_id}"
+
+
+def user_channel(user_id: str) -> str:
+    return f"ht:user:{user_id}"

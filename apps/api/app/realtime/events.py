@@ -22,6 +22,7 @@ class WsEvent(StrEnum):
     ROOM_UPDATED = "room.updated"
     ROOM_ARCHIVED = "room.archived"
     ROOM_DELETED = "room.deleted"
+    NOTIFICATION_CREATED = "notification.created"
     PING = "ping"
     PONG = "pong"
     ERROR = "error"

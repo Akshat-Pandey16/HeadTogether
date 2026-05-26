@@ -4,6 +4,7 @@ from app.models.enums import (
     Gender,
     MembershipState,
     MessageType,
+    NotificationType,
     ReportReason,
     ReportStatus,
     ReportTarget,
@@ -15,7 +16,7 @@ from app.models.enums import (
 )
 from app.models.message import Message, MessageReaction, RoomReadState
 from app.models.moderation import Block, Report
-from app.models.notifications import DeviceToken
+from app.models.notifications import DeviceToken, Notification
 from app.models.room import Room, RoomDetail, RoomEvent, RoomMember, SavedRoom
 from app.models.tag import RoomTag, Tag, UserTag
 from app.models.user import User
@@ -30,6 +31,8 @@ __all__ = [
     "Message",
     "MessageReaction",
     "MessageType",
+    "Notification",
+    "NotificationType",
     "PasswordResetToken",
     "RefreshToken",
     "Report",

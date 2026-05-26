@@ -15,6 +15,7 @@ from app.core.exceptions import (
 )
 from app.models.enums import (
     MembershipState,
+    NotificationType,
     RoomEventType,
     RoomRole,
     RoomStatus,
@@ -47,6 +48,7 @@ from app.schemas.room import (
 from app.schemas.tag import TagRead
 from app.schemas.user import UserPublic
 from app.services.geo import bounding_box, haversine_km
+from app.services.notifications import NotificationService
 from app.services.tag import TagService
 from app.utils.time import ensure_utc, utc_now
 
@@ -66,6 +68,7 @@ class RoomService:
         self.blocks = BlockRepository(session)
         self.room_tags = RoomTagRepository(session)
         self.tag_service = TagService(session)
+        self.notify_service = NotificationService(session)
 
     async def create(self, *, owner_id: UUID, payload: RoomCreate) -> Room:
         invite_code = (
@@ -144,6 +147,9 @@ class RoomService:
         room.restore_until = now + timedelta(days=_RESTORE_WINDOW_DAYS)
         await self._record_event(room=room, actor_id=actor_id, event_type=RoomEventType.DELETED)
         await self.session.commit()
+        await self._notify_room_members(
+            room=room, actor_id=actor_id, type=NotificationType.ROOM_DELETED
+        )
 
     async def restore(self, *, room_id: UUID, actor_id: UUID) -> Room:
         room = await self.rooms.get_any(room_id)
@@ -170,6 +176,9 @@ class RoomService:
         await self._record_event(room=room, actor_id=actor_id, event_type=RoomEventType.ARCHIVED)
         await self.session.commit()
         await self.session.refresh(room)
+        await self._notify_room_members(
+            room=room, actor_id=actor_id, type=NotificationType.ROOM_ARCHIVED
+        )
         return room
 
     async def reactivate(self, *, room_id: UUID, actor_id: UUID) -> Room:
@@ -209,6 +218,13 @@ class RoomService:
         )
         await self.session.commit()
         await self.session.refresh(room)
+        await self.notify_service.notify(
+            user_id=new_owner_id,
+            type=NotificationType.OWNERSHIP_TRANSFERRED,
+            actor_id=actor_id,
+            room_id=room.id,
+            payload={"room_name": room.name},
+        )
         return room
 
     async def promote(self, *, room_id: UUID, actor_id: UUID, target_user_id: UUID) -> RoomMember:
@@ -227,6 +243,13 @@ class RoomService:
             target_user_id=target_user_id,
         )
         await self.session.commit()
+        await self.notify_service.notify(
+            user_id=target_user_id,
+            type=NotificationType.ROOM_PROMOTED,
+            actor_id=actor_id,
+            room_id=room.id,
+            payload={"room_name": room.name},
+        )
         return member
 
     async def demote(self, *, room_id: UUID, actor_id: UUID, target_user_id: UUID) -> RoomMember:
@@ -245,6 +268,13 @@ class RoomService:
             target_user_id=target_user_id,
         )
         await self.session.commit()
+        await self.notify_service.notify(
+            user_id=target_user_id,
+            type=NotificationType.ROOM_DEMOTED,
+            actor_id=actor_id,
+            room_id=room.id,
+            payload={"room_name": room.name},
+        )
         return member
 
     async def rotate_invite_code(self, *, room_id: UUID, actor_id: UUID) -> str:
@@ -481,6 +511,13 @@ class RoomService:
         )
         await self._promote_from_waitlist_if_room(room)
         await self.session.commit()
+        await self.notify_service.notify(
+            user_id=target_user_id,
+            type=NotificationType.ROOM_KICKED,
+            actor_id=actor_id,
+            room_id=room.id,
+            payload={"room_name": room.name},
+        )
 
     async def list_members(
         self,
@@ -628,6 +665,12 @@ class RoomService:
                 event_type=RoomEventType.WAITLIST_PROMOTED,
                 target_user_id=next_in_line.user_id,
             )
+            await self.notify_service.notify(
+                user_id=next_in_line.user_id,
+                type=NotificationType.WAITLIST_PROMOTED,
+                room_id=room.id,
+                payload={"room_name": room.name},
+            )
             current += 1
 
     async def _get_or_404(self, room_id: UUID) -> Room:
@@ -725,3 +768,20 @@ class RoomService:
             "Could not allocate invite code; please retry",
             code="invite_code_exhausted",
         )
+
+    async def _notify_room_members(
+        self, *, room: Room, actor_id: UUID, type: NotificationType
+    ) -> None:
+        members, _ = await self.members.list_for_room(
+            room.id, limit=500, offset=0, state=MembershipState.ACTIVE
+        )
+        for m in members:
+            if m.user_id == actor_id:
+                continue
+            await self.notify_service.notify(
+                user_id=m.user_id,
+                type=type,
+                actor_id=actor_id,
+                room_id=room.id,
+                payload={"room_name": room.name},
+            )

@@ -69,7 +69,7 @@ class ConnectionManager:
 
     async def _fanout(self, room_id: UUID) -> None:
         channel = room_channel(str(room_id))
-        subscription = self._broker.subscribe(channel)
+        subscription = await self._broker.subscribe(channel)
         try:
             async for event in subscription:
                 async with self._lock:

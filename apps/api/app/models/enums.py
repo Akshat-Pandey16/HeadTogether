@@ -75,6 +75,20 @@ class DevicePlatform(StrEnum):
     WEB = "web"
 
 
+class NotificationType(StrEnum):
+    MENTION = "mention"
+    REACTION = "reaction"
+    REPLY = "reply"
+    DM_MESSAGE = "dm_message"
+    ROOM_KICKED = "room_kicked"
+    ROOM_PROMOTED = "room_promoted"
+    ROOM_DEMOTED = "room_demoted"
+    WAITLIST_PROMOTED = "waitlist_promoted"
+    OWNERSHIP_TRANSFERRED = "ownership_transferred"
+    ROOM_ARCHIVED = "room_archived"
+    ROOM_DELETED = "room_deleted"
+
+
 class RoomEventType(StrEnum):
     CREATED = "created"
     UPDATED = "updated"

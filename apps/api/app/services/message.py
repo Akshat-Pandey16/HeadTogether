@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.exceptions import AuthorizationError, ConflictError, NotFoundError
-from app.models.enums import MessageType, RoomStatus
+from app.models.enums import MessageType, NotificationType, RoomStatus
 from app.models.message import Message, MessageReaction, RoomReadState
 from app.realtime.broker import room_channel
 from app.realtime.events import WsEvent
@@ -32,9 +32,10 @@ from app.schemas.message import (
     UnreadResponse,
 )
 from app.schemas.user import UserPublic
+from app.services.notifications import NotificationService
 from app.utils.time import ensure_utc, utc_now
 
-_MENTION_RE = re.compile(r"@([\w.\-]{1,80})")
+_MENTION_RE = re.compile(r"@([\w.\-]+@[\w.\-]+\.[\w]+|[\w.\-]{1,80})")
 
 
 class MessageService:
@@ -47,6 +48,7 @@ class MessageService:
         self.rooms = RoomRepository(session)
         self.blocks = BlockRepository(session)
         self.users = UserRepository(session)
+        self.notify_service = NotificationService(session)
 
     async def list_page(
         self,
@@ -91,10 +93,12 @@ class MessageService:
             )
             if existing is not None:
                 return self._to_read(existing, sender_id, set()), [], False
+        parent_author_id: UUID | None = None
         if payload.parent_message_id is not None:
             parent = await self.messages.get(payload.parent_message_id)
             if parent is None or parent.room_id != room.id or parent.deleted_at is not None:
                 raise NotFoundError("Parent message not found", code="parent_not_found")
+            parent_author_id = parent.sender_id
         message = Message(
             room_id=room.id,
             sender_id=sender_id,
@@ -106,6 +110,24 @@ class MessageService:
         await self.session.commit()
         await self.session.refresh(message, attribute_names=["sender", "reactions"])
         mentioned = await self._resolve_mentions(payload.body, room_id=room.id)
+        for uid in mentioned:
+            await self.notify_service.notify(
+                user_id=uid,
+                type=NotificationType.MENTION,
+                actor_id=sender_id,
+                room_id=room.id,
+                message_id=message.id,
+                payload={"body": message.body[:200]},
+            )
+        if parent_author_id is not None and parent_author_id not in set(mentioned):
+            await self.notify_service.notify(
+                user_id=parent_author_id,
+                type=NotificationType.REPLY,
+                actor_id=sender_id,
+                room_id=room.id,
+                message_id=message.id,
+                payload={"body": message.body[:200]},
+            )
         read = self._to_read(message, sender_id, set())
         return read, mentioned, True
 
@@ -184,6 +206,15 @@ class MessageService:
         )
         await self.reactions.add(reaction)
         await self.session.commit()
+        if message.sender_id != actor_id:
+            await self.notify_service.notify(
+                user_id=message.sender_id,
+                type=NotificationType.REACTION,
+                actor_id=actor_id,
+                room_id=message.room_id,
+                message_id=message.id,
+                payload={"emoji": payload.emoji},
+            )
         return reaction
 
     async def remove_reaction(

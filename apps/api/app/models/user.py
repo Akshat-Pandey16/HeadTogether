@@ -12,7 +12,7 @@ from app.models.enums import Gender
 if TYPE_CHECKING:
     from app.models.auth import LoginAttempt, PasswordResetToken, RefreshToken
     from app.models.message import Message
-    from app.models.notifications import DeviceToken
+    from app.models.notifications import DeviceToken, Notification
     from app.models.room import Room, RoomMember
     from app.models.tag import UserTag
 
@@ -83,6 +83,13 @@ class User(Base, IdMixin, TimestampMixin):
         cascade="all, delete-orphan",
         default_factory=list,
         init=False,
+    )
+    notifications: Mapped[list[Notification]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        default_factory=list,
+        init=False,
+        foreign_keys="Notification.user_id",
     )
 
     @property

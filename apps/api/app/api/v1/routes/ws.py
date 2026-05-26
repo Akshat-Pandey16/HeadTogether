@@ -13,7 +13,7 @@ from app.core.config import settings
 from app.core.exceptions import AppError
 from app.core.logging import get_logger
 from app.db.session import SessionFactory
-from app.realtime.broker import get_broker, room_channel
+from app.realtime.broker import get_broker, room_channel, user_channel
 from app.realtime.events import WsEvent
 from app.realtime.manager import ConnectionManager
 from app.repositories.room import RoomMemberRepository, RoomRepository
@@ -194,6 +194,73 @@ async def _heartbeat(websocket: WebSocket) -> None:
                 break
             with suppress(Exception):
                 await websocket.send_json({"type": WsEvent.PING.value, "data": {}})
+    except asyncio.CancelledError:
+        pass
+
+
+@router.websocket("/me")
+async def user_socket(websocket: WebSocket, token: str = Query(...)) -> None:
+    broker = get_broker()
+    async with _session_factory() as session:
+        try:
+            user = await AuthService(session).get_current_user(token)
+        except AppError as exc:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason=exc.code)
+            return
+
+    await websocket.accept()
+    evicted = await _register_user_connection(user.id, websocket)
+    if evicted is not None:
+        with suppress(Exception):
+            await evicted.send_json(
+                {
+                    "type": WsEvent.ERROR.value,
+                    "data": {"code": "connection_replaced"},
+                }
+            )
+        with suppress(Exception):
+            await evicted.close(code=4001)
+
+    subscription = await broker.subscribe(user_channel(str(user.id)))
+    heartbeat_task = asyncio.create_task(_heartbeat(websocket))
+    fanout_task = asyncio.create_task(_fanout_to_socket(subscription, websocket))
+    try:
+        while True:
+            payload = await websocket.receive_json()
+            if payload.get("type") == WsEvent.PONG.value:
+                continue
+            with suppress(Exception):
+                await websocket.send_json(
+                    {
+                        "type": WsEvent.ERROR.value,
+                        "data": {"code": "unknown_event"},
+                    }
+                )
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        log.exception("ws.user.unhandled_exception")
+    finally:
+        heartbeat_task.cancel()
+        fanout_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await heartbeat_task
+        with suppress(asyncio.CancelledError):
+            await fanout_task
+        await subscription.close()
+        await _unregister_user_connection(user.id, websocket)
+        if websocket.application_state is WebSocketState.CONNECTED:
+            with suppress(Exception):
+                await websocket.close()
+
+
+async def _fanout_to_socket(subscription, websocket: WebSocket) -> None:
+    try:
+        async for event in subscription:
+            if websocket.client_state is not WebSocketState.CONNECTED:
+                break
+            with suppress(Exception):
+                await websocket.send_json(event)
     except asyncio.CancelledError:
         pass
 
