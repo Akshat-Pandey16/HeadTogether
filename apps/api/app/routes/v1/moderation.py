@@ -7,8 +7,18 @@ from fastapi import APIRouter, status
 from app.deps import CurrentUser, ModerationServiceDep
 from app.schemas.common import GenericMessage
 from app.schemas.moderation import BlockRequest, ReportCreate, ReportRead
+from app.schemas.user import UserPublic
 
 router = APIRouter(prefix="/moderation", tags=["moderation"])
+
+
+@router.get("/blocks", response_model=list[UserPublic])
+async def list_blocked_users(
+    current_user: CurrentUser,
+    moderation: ModerationServiceDep,
+) -> list[UserPublic]:
+    users = await moderation.list_blocked_users(actor_id=current_user.id)
+    return [UserPublic.model_validate(u) for u in users]
 
 
 @router.post("/reports", response_model=ReportRead, status_code=status.HTTP_201_CREATED)

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.models.enums import ReportTarget
 from app.models.moderation import Block, Report
+from app.models.user import User
 from app.repositories.message import MessageRepository
 from app.repositories.moderation import BlockRepository, ReportRepository
 from app.repositories.room import RoomRepository
@@ -50,6 +51,10 @@ class ModerationService:
 
     async def list_blocked(self, *, actor_id: UUID) -> list[Block]:
         return await self.blocks.list(actor_user_id=actor_id, limit=200, offset=0)
+
+    async def list_blocked_users(self, *, actor_id: UUID) -> list[User]:
+        target_ids = await self.blocks.blocked_by(actor_id)
+        return await self.users.list_by_ids(target_ids)
 
     async def report(self, *, reporter_id: UUID, payload: ReportCreate) -> Report:
         await self._ensure_target_exists(payload)
