@@ -17,7 +17,7 @@ class Tag(Base, IdMixin, TimestampMixin):
     __tablename__ = "tags"
     __table_args__ = (Index("ix_tags_slug", "slug", unique=True),)
 
-    slug: Mapped[str] = mapped_column(String(40), unique=True)
+    slug: Mapped[str] = mapped_column(String(40))
     label: Mapped[str] = mapped_column(String(40))
 
 

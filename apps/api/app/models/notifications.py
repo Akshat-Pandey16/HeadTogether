@@ -22,7 +22,7 @@ class DeviceToken(Base, IdMixin, TimestampMixin):
     )
 
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    token: Mapped[str] = mapped_column(String(255), unique=True)
+    token: Mapped[str] = mapped_column(String(255))
     platform: Mapped[DevicePlatform] = mapped_column(enum_column(DevicePlatform))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)

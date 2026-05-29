@@ -22,7 +22,7 @@ class RefreshToken(Base, IdMixin):
     )
 
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    jti: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    jti: Mapped[str] = mapped_column(String(64))
     family_id: Mapped[UUID] = mapped_column()
     issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -46,7 +46,7 @@ class PasswordResetToken(Base, IdMixin):
     )
 
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    token_hash: Mapped[str] = mapped_column(String(64))
     issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)

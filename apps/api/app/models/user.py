@@ -21,7 +21,7 @@ class User(Base, IdMixin, TimestampMixin):
     __tablename__ = "users"
     __table_args__ = (Index("ix_users_email", "email", unique=True),)
 
-    email: Mapped[str] = mapped_column(String(254), unique=True, index=True)
+    email: Mapped[str] = mapped_column(String(254))
     hashed_password: Mapped[str] = mapped_column(String(255))
     first_name: Mapped[str] = mapped_column(String(80))
     last_name: Mapped[str] = mapped_column(String(80))

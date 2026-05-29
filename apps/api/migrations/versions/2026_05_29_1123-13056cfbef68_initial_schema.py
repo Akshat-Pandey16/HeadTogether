@@ -7,7 +7,7 @@ import sqlalchemy as sa
 from alembic import op
 
 
-revision: str = "bac76b6d6d90"
+revision: str = "13056cfbef68"
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -32,7 +32,6 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("slug"),
     )
     with op.batch_alter_table("tags", schema=None) as batch_op:
         batch_op.create_index("ix_tags_slug", ["slug"], unique=True)
@@ -80,7 +79,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     with op.batch_alter_table("users", schema=None) as batch_op:
-        batch_op.create_index(batch_op.f("ix_users_email"), ["email"], unique=True)
+        batch_op.create_index("ix_users_email", ["email"], unique=True)
 
     op.create_table(
         "blocks",
@@ -131,7 +130,6 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("token"),
     )
     with op.batch_alter_table("device_tokens", schema=None) as batch_op:
         batch_op.create_index("ix_device_tokens_token", ["token"], unique=True)
@@ -167,7 +165,6 @@ def upgrade() -> None:
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("token_hash"),
     )
     with op.batch_alter_table("password_reset_tokens", schema=None) as batch_op:
         batch_op.create_index("ix_password_reset_tokens_hash", ["token_hash"], unique=True)
@@ -291,6 +288,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("invite_code", sa.String(length=24), nullable=True),
+        sa.Column("dm_key", sa.String(length=73), nullable=True),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("starts_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("ends_at", sa.DateTime(timezone=True), nullable=True),
@@ -319,10 +317,10 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     with op.batch_alter_table("rooms", schema=None) as batch_op:
+        batch_op.create_index("ix_rooms_dm_key", ["dm_key"], unique=True)
         batch_op.create_index("ix_rooms_ends_at", ["ends_at"], unique=False)
         batch_op.create_index("ix_rooms_invite_code", ["invite_code"], unique=True)
         batch_op.create_index("ix_rooms_owner", ["owner_id"], unique=False)
-        batch_op.create_index(batch_op.f("ix_rooms_owner_id"), ["owner_id"], unique=False)
         batch_op.create_index("ix_rooms_starts_at", ["starts_at"], unique=False)
         batch_op.create_index(
             "ix_rooms_status_visibility_geo",
@@ -688,10 +686,10 @@ def downgrade() -> None:
     with op.batch_alter_table("rooms", schema=None) as batch_op:
         batch_op.drop_index("ix_rooms_status_visibility_geo")
         batch_op.drop_index("ix_rooms_starts_at")
-        batch_op.drop_index(batch_op.f("ix_rooms_owner_id"))
         batch_op.drop_index("ix_rooms_owner")
         batch_op.drop_index("ix_rooms_invite_code")
         batch_op.drop_index("ix_rooms_ends_at")
+        batch_op.drop_index("ix_rooms_dm_key")
 
     op.drop_table("rooms")
     with op.batch_alter_table("reports", schema=None) as batch_op:
@@ -727,7 +725,7 @@ def downgrade() -> None:
 
     op.drop_table("blocks")
     with op.batch_alter_table("users", schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f("ix_users_email"))
+        batch_op.drop_index("ix_users_email")
 
     op.drop_table("users")
     with op.batch_alter_table("tags", schema=None) as batch_op:
