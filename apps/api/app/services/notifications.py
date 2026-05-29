@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,16 @@ from app.schemas.notifications import DeviceTokenCreate, NotificationRead
 from app.utils.time import utc_now
 
 log = get_logger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class NotificationDraft:
+    user_id: UUID
+    type: NotificationType
+    actor_id: UUID | None = None
+    room_id: UUID | None = None
+    message_id: UUID | None = None
+    payload: dict | None = field(default=None)
 
 
 class NotificationService:
@@ -64,20 +75,46 @@ class NotificationService:
         message_id: UUID | None = None,
         payload: dict | None = None,
     ) -> Notification | None:
-        if actor_id is not None and actor_id == user_id:
-            return None
-        notification = Notification(
-            user_id=user_id,
-            type=type,
-            actor_id=actor_id,
-            room_id=room_id,
-            message_id=message_id,
-            payload=payload,
+        notification = self._build(
+            NotificationDraft(
+                user_id=user_id,
+                type=type,
+                actor_id=actor_id,
+                room_id=room_id,
+                message_id=message_id,
+                payload=payload,
+            )
         )
+        if notification is None:
+            return None
         await self.notifications.add(notification)
         await self.session.commit()
         await self._publish(notification)
         return notification
+
+    async def notify_many(self, drafts: list[NotificationDraft]) -> list[Notification]:
+        built = [n for draft in drafts if (n := self._build(draft)) is not None]
+        if not built:
+            return []
+        for notification in built:
+            await self.notifications.add(notification)
+        await self.session.commit()
+        for notification in built:
+            await self._publish(notification)
+        return built
+
+    @staticmethod
+    def _build(draft: NotificationDraft) -> Notification | None:
+        if draft.actor_id is not None and draft.actor_id == draft.user_id:
+            return None
+        return Notification(
+            user_id=draft.user_id,
+            type=draft.type,
+            actor_id=draft.actor_id,
+            room_id=draft.room_id,
+            message_id=draft.message_id,
+            payload=draft.payload,
+        )
 
     async def list(
         self,

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import and_, asc, desc, func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.models.message import Message, MessageReaction, RoomReadState
@@ -52,12 +53,52 @@ class MessageRepository(AsyncRepository[Message]):
         if before_id is not None:
             anchor = await self.session.get(Message, before_id)
             if anchor is not None:
-                stmt = stmt.where(Message.created_at < anchor.created_at)
+                stmt = stmt.where(
+                    or_(
+                        Message.created_at < anchor.created_at,
+                        and_(
+                            Message.created_at == anchor.created_at,
+                            Message.id < anchor.id,
+                        ),
+                    )
+                )
         if after_id is not None:
             anchor = await self.session.get(Message, after_id)
             if anchor is not None:
-                stmt = stmt.where(Message.created_at > anchor.created_at)
-        stmt = stmt.order_by(desc(Message.created_at)).limit(limit)
+                stmt = stmt.where(
+                    or_(
+                        Message.created_at > anchor.created_at,
+                        and_(
+                            Message.created_at == anchor.created_at,
+                            Message.id > anchor.id,
+                        ),
+                    )
+                )
+        stmt = stmt.order_by(desc(Message.created_at), desc(Message.id)).limit(limit)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def page_after_asc(
+        self,
+        *,
+        room_id: UUID,
+        after_created_at: datetime,
+        after_id: UUID,
+        limit: int,
+    ) -> list[Message]:
+        stmt = (
+            select(Message)
+            .where(
+                Message.room_id == room_id,
+                or_(
+                    Message.created_at > after_created_at,
+                    and_(Message.created_at == after_created_at, Message.id > after_id),
+                ),
+            )
+            .options(selectinload(Message.sender), selectinload(Message.reactions))
+            .order_by(asc(Message.created_at), asc(Message.id))
+            .limit(limit)
+        )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 

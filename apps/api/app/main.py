@@ -48,7 +48,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
         docs_url="/docs" if not settings.is_production else None,
         redoc_url="/redoc" if not settings.is_production else None,
-        openapi_url=f"{settings.api_v1_prefix}/openapi.json",
+        openapi_url=None if settings.is_production else f"{settings.api_v1_prefix}/openapi.json",
     )
 
     app.state.limiter = limiter
@@ -94,6 +94,22 @@ def create_app() -> FastAPI:
                 code="rate_limited",
                 message="Too many requests",
                 details={"limit": str(exc.detail)},
+            ).model_dump(),
+        )
+
+    @app.exception_handler(Exception)
+    async def _handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
+        log.exception(
+            "unhandled_exception",
+            method=request.method,
+            path=request.url.path,
+            error=type(exc).__name__,
+        )
+        return JSONResponse(
+            status_code=500,
+            content=ErrorResponse(
+                code="internal_error",
+                message="An unexpected error occurred",
             ).model_dump(),
         )
 

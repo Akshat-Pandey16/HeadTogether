@@ -21,6 +21,11 @@ class RoomRepository(AsyncRepository[Room]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def lock(self, room_id: UUID) -> Room | None:
+        stmt = select(Room).where(Room.id == room_id).with_for_update()
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get_any(self, room_id: UUID) -> Room | None:
         return await self.get(room_id)
 
@@ -132,12 +137,9 @@ class RoomRepository(AsyncRepository[Room]):
         ordered = base.options(selectinload(Room.owner))
         if order_by == "starts_at":
             ordered = ordered.order_by(Room.starts_at.asc().nulls_last(), Room.created_at.desc())
-        elif order_by == "members":
-            ordered = ordered.order_by(Room.created_at.desc())
         else:
             ordered = ordered.order_by(Room.created_at.desc())
         rows = await self.session.execute(ordered.limit(limit).offset(offset))
-        _ = actor_id
         return list(rows.scalars().all()), int(total or 0)
 
     async def candidates_in_bbox(
@@ -214,6 +216,31 @@ class RoomMemberRepository(AsyncRepository[RoomMember]):
         )
         return int(await self.session.scalar(stmt) or 0)
 
+    async def count_active_for_rooms(self, room_ids: list[UUID]) -> dict[UUID, int]:
+        if not room_ids:
+            return {}
+        stmt = (
+            select(RoomMember.room_id, func.count())
+            .where(
+                RoomMember.room_id.in_(room_ids),
+                RoomMember.state == MembershipState.ACTIVE,
+            )
+            .group_by(RoomMember.room_id)
+        )
+        result = await self.session.execute(stmt)
+        return {room_id: int(count) for room_id, count in result.all()}
+
+    async def memberships_for_user(
+        self, user_id: UUID, room_ids: list[UUID]
+    ) -> dict[UUID, RoomMember]:
+        if not room_ids:
+            return {}
+        stmt = select(RoomMember).where(
+            RoomMember.user_id == user_id, RoomMember.room_id.in_(room_ids)
+        )
+        result = await self.session.execute(stmt)
+        return {m.room_id: m for m in result.scalars().all()}
+
     async def first_waitlisted(self, room_id: UUID) -> RoomMember | None:
         stmt = (
             select(RoomMember)
@@ -234,6 +261,15 @@ class RoomDetailRepository(AsyncRepository[RoomDetail]):
 
 class SavedRoomRepository(AsyncRepository[SavedRoom]):
     model = SavedRoom
+
+    async def saved_ids(self, user_id: UUID, room_ids: list[UUID]) -> set[UUID]:
+        if not room_ids:
+            return set()
+        stmt = select(SavedRoom.room_id).where(
+            SavedRoom.user_id == user_id, SavedRoom.room_id.in_(room_ids)
+        )
+        result = await self.session.execute(stmt)
+        return {row[0] for row in result.all()}
 
     async def list_for_user(
         self, user_id: UUID, *, limit: int, offset: int

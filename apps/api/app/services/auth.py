@@ -18,6 +18,7 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    dummy_verify_password,
     hash_password,
     verify_and_update_password,
 )
@@ -77,9 +78,11 @@ class AuthService:
         normalized = email.lower().strip()
         user = await self.users.get_by_email(normalized)
         if user is None:
+            dummy_verify_password(password)
             await self._record_attempt(
                 user=None, email=normalized, success=False, reason="user_not_found", client=client
             )
+            await self.session.commit()
             raise AuthenticationError("Invalid credentials", code="invalid_credentials")
 
         now = utc_now()
@@ -88,6 +91,7 @@ class AuthService:
             await self._record_attempt(
                 user=user, email=normalized, success=False, reason="locked", client=client
             )
+            await self.session.commit()
             raise AuthenticationError("Account is temporarily locked", code="account_locked")
 
         valid, new_hash = verify_and_update_password(password, user.hashed_password)

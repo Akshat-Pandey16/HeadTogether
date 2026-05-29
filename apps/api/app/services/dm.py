@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from sqlalchemy import and_, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -18,6 +19,11 @@ from app.models.room import Room, RoomMember
 from app.repositories.moderation import BlockRepository
 from app.repositories.room import RoomMemberRepository, RoomRepository
 from app.repositories.user import UserRepository
+
+
+def _dm_key(a: UUID, b: UUID) -> str:
+    first, second = sorted((str(a), str(b)))
+    return f"{first}:{second}"
 
 
 class DMService:
@@ -55,18 +61,26 @@ class DMService:
             max_members=2,
             visibility=RoomVisibility.DM,
             status=RoomStatus.ACTIVE,
+            dm_key=_dm_key(actor_id, recipient_id),
         )
-        await self.rooms.add(room)
-        for uid in (actor_id, recipient_id):
-            await self.members.add(
-                RoomMember(
-                    room_id=room.id,
-                    user_id=uid,
-                    role=RoomRole.MEMBER,
-                    state=MembershipState.ACTIVE,
+        try:
+            await self.rooms.add(room)
+            for uid in (actor_id, recipient_id):
+                await self.members.add(
+                    RoomMember(
+                        room_id=room.id,
+                        user_id=uid,
+                        role=RoomRole.MEMBER,
+                        state=MembershipState.ACTIVE,
+                    )
                 )
-            )
-        await self.session.commit()
+            await self.session.commit()
+        except IntegrityError:
+            await self.session.rollback()
+            raced = await self._find_dm(actor_id, recipient_id)
+            if raced is not None:
+                return raced
+            raise
         return room
 
     async def list_for_user(self, *, user_id: UUID) -> list[Room]:
@@ -104,19 +118,11 @@ class DMService:
         return int(await self.session.scalar(stmt) or 0) > 0
 
     async def _find_dm(self, a: UUID, b: UUID) -> Room | None:
-        ma = RoomMember.__table__.alias("ma")
-        mb = RoomMember.__table__.alias("mb")
         stmt = (
             select(Room)
-            .join(ma, ma.c.room_id == Room.id)
-            .join(mb, mb.c.room_id == Room.id)
             .where(
-                and_(
-                    Room.visibility == RoomVisibility.DM,
-                    Room.status == RoomStatus.ACTIVE,
-                    ma.c.user_id == a,
-                    mb.c.user_id == b,
-                )
+                Room.dm_key == _dm_key(a, b),
+                Room.status == RoomStatus.ACTIVE,
             )
             .options(selectinload(Room.owner))
             .limit(1)

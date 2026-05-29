@@ -25,6 +25,7 @@ from app.models.enums import (
     RoomStatus,
     RoomVisibility,
 )
+from app.utils.time import utc_now
 
 if TYPE_CHECKING:
     from app.models.message import Message
@@ -42,11 +43,12 @@ class Room(Base, IdMixin, TimestampMixin):
         Index("ix_rooms_owner", "owner_id"),
         Index("ix_rooms_status_visibility_geo", "status", "visibility", "latitude", "longitude"),
         Index("ix_rooms_invite_code", "invite_code", unique=True),
+        Index("ix_rooms_dm_key", "dm_key", unique=True),
         Index("ix_rooms_starts_at", "starts_at"),
         Index("ix_rooms_ends_at", "ends_at"),
     )
 
-    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(120))
     purpose: Mapped[RoomPurpose] = mapped_column(enum_column(RoomPurpose))
     latitude: Mapped[float] = mapped_column(Float)
@@ -59,6 +61,7 @@ class Room(Base, IdMixin, TimestampMixin):
     )
     status: Mapped[RoomStatus] = mapped_column(enum_column(RoomStatus), default=RoomStatus.ACTIVE)
     invite_code: Mapped[str | None] = mapped_column(String(24), default=None)
+    dm_key: Mapped[str | None] = mapped_column(String(73), default=None)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
@@ -162,7 +165,7 @@ class RoomEvent(Base, IdMixin):
     )
     payload: Mapped[str | None] = mapped_column(String(2000), default=None)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), init=False
+        DateTime(timezone=True), default_factory=utc_now, server_default=func.now(), init=False
     )
 
     room: Mapped[Room] = relationship(back_populates="events", init=False)

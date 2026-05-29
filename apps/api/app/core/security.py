@@ -17,6 +17,7 @@ from app.core.exceptions import AuthenticationError
 
 _password_hasher: Final[PasswordHash] = PasswordHash.recommended()
 _OPAQUE_TOKEN_BYTES: Final[int] = 32
+_DUMMY_PASSWORD_HASH: Final[str] = _password_hasher.hash(secrets.token_urlsafe(_OPAQUE_TOKEN_BYTES))
 
 
 class TokenType(StrEnum):
@@ -44,6 +45,10 @@ def hash_password(plain_password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return _password_hasher.verify(plain_password, hashed_password)
+
+
+def dummy_verify_password(plain_password: str) -> None:
+    _password_hasher.verify(plain_password, _DUMMY_PASSWORD_HASH)
 
 
 def verify_and_update_password(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from uuid import UUID
 
 from sqlalchemy import select
@@ -39,3 +40,15 @@ class RoomTagRepository(AsyncRepository[RoomTag]):
         stmt = select(RoomTag).where(RoomTag.room_id == room_id).options(selectinload(RoomTag.tag))
         result = await self.session.execute(stmt)
         return [rt.tag for rt in result.scalars().all()]
+
+    async def tags_for_rooms(self, room_ids: list[UUID]) -> dict[UUID, list[Tag]]:
+        if not room_ids:
+            return {}
+        stmt = (
+            select(RoomTag).where(RoomTag.room_id.in_(room_ids)).options(selectinload(RoomTag.tag))
+        )
+        result = await self.session.execute(stmt)
+        grouped: dict[UUID, list[Tag]] = defaultdict(list)
+        for rt in result.scalars().all():
+            grouped[rt.room_id].append(rt.tag)
+        return dict(grouped)

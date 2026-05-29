@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
@@ -32,8 +33,15 @@ class ModerationService:
         if existing is not None:
             return existing
         block = Block(actor_user_id=actor_id, target_user_id=target_id)
-        await self.blocks.add(block)
-        await self.session.commit()
+        try:
+            await self.blocks.add(block)
+            await self.session.commit()
+        except IntegrityError:
+            await self.session.rollback()
+            raced = await self.blocks.get(actor_id, target_id)
+            if raced is not None:
+                return raced
+            raise
         return block
 
     async def unblock(self, *, actor_id: UUID, target_id: UUID) -> None:

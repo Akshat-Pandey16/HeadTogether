@@ -13,7 +13,7 @@ from app.core.config import settings
 from app.core.exceptions import AppError
 from app.core.logging import get_logger
 from app.db.session import SessionFactory
-from app.realtime.broker import get_broker, room_channel, user_channel
+from app.realtime.broker import get_broker, user_channel
 from app.realtime.events import WsEvent
 from app.realtime.manager import ConnectionManager
 from app.repositories.room import RoomMemberRepository, RoomRepository
@@ -90,8 +90,9 @@ async def room_socket(
                 await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="not_member")
                 return
             recovery: list[dict] = []
+            recovery_truncated = False
             if since_message_id is not None:
-                messages = await MessageService(session).list_for_recovery(
+                messages, recovery_truncated = await MessageService(session).list_for_recovery(
                     room_id=room_id, actor_id=user.id, since_message_id=since_message_id
                 )
                 recovery = [m.model_dump(mode="json") for m in messages]
@@ -112,12 +113,16 @@ async def room_socket(
         with suppress(Exception):
             await evicted.close(code=4001)
 
-    if recovery:
+    if recovery or recovery_truncated:
         with suppress(Exception):
             await websocket.send_json(
                 {
                     "type": "recovery",
-                    "data": {"messages": recovery, "since_message_id": str(since_message_id)},
+                    "data": {
+                        "messages": recovery,
+                        "since_message_id": str(since_message_id),
+                        "truncated": recovery_truncated,
+                    },
                 }
             )
 
@@ -128,7 +133,8 @@ async def room_socket(
         {"type": WsEvent.PRESENCE_JOINED.value, "data": {"user_id": str(user.id)}},
     )
 
-    heartbeat_task = asyncio.create_task(_heartbeat(websocket))
+    pong = _PongTracker()
+    heartbeat_task = asyncio.create_task(_heartbeat(websocket, pong))
     try:
         while True:
             payload = await websocket.receive_json()
@@ -156,6 +162,7 @@ async def room_socket(
                     },
                 )
             elif event == WsEvent.PONG.value:
+                pong.mark()
                 continue
             else:
                 with suppress(Exception):
@@ -186,11 +193,27 @@ async def room_socket(
                 await websocket.close()
 
 
-async def _heartbeat(websocket: WebSocket) -> None:
+class _PongTracker:
+    __slots__ = ("last_seen",)
+
+    def __init__(self) -> None:
+        self.last_seen = asyncio.get_running_loop().time()
+
+    def mark(self) -> None:
+        self.last_seen = asyncio.get_running_loop().time()
+
+
+async def _heartbeat(websocket: WebSocket, pong: _PongTracker) -> None:
+    interval = settings.ws_heartbeat_interval_seconds
+    deadline = interval * 2.5
     try:
         while True:
-            await asyncio.sleep(settings.ws_heartbeat_interval_seconds)
+            await asyncio.sleep(interval)
             if websocket.application_state is not WebSocketState.CONNECTED:
+                break
+            if asyncio.get_running_loop().time() - pong.last_seen > deadline:
+                with suppress(Exception):
+                    await websocket.close(code=4002)
                 break
             with suppress(Exception):
                 await websocket.send_json({"type": WsEvent.PING.value, "data": {}})
@@ -222,12 +245,14 @@ async def user_socket(websocket: WebSocket, token: str = Query(...)) -> None:
             await evicted.close(code=4001)
 
     subscription = await broker.subscribe(user_channel(str(user.id)))
-    heartbeat_task = asyncio.create_task(_heartbeat(websocket))
+    pong = _PongTracker()
+    heartbeat_task = asyncio.create_task(_heartbeat(websocket, pong))
     fanout_task = asyncio.create_task(_fanout_to_socket(subscription, websocket))
     try:
         while True:
             payload = await websocket.receive_json()
             if payload.get("type") == WsEvent.PONG.value:
+                pong.mark()
                 continue
             with suppress(Exception):
                 await websocket.send_json(
@@ -263,6 +288,3 @@ async def _fanout_to_socket(subscription, websocket: WebSocket) -> None:
                 await websocket.send_json(event)
     except asyncio.CancelledError:
         pass
-
-
-_ = room_channel

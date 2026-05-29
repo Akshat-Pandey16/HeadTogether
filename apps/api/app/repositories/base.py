@@ -20,7 +20,6 @@ class AsyncRepository[ModelT: Base]:
     async def add(self, instance: ModelT) -> ModelT:
         self.session.add(instance)
         await self.session.flush()
-        await self.session.refresh(instance)
         return instance
 
     async def get(self, pk: UUID) -> ModelT | None:

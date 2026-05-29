@@ -8,6 +8,8 @@ from sqlalchemy import DateTime, func
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, mapped_column
 
+from app.utils.time import utc_now
+
 
 def enum_column(enum_cls: type[Enum]) -> SAEnum:
     return SAEnum(
@@ -29,11 +31,13 @@ class IdMixin(MappedAsDataclass):
 class TimestampMixin(MappedAsDataclass):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
+        default_factory=utc_now,
         server_default=func.now(),
         init=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
+        default_factory=utc_now,
         server_default=func.now(),
         onupdate=func.now(),
         init=False,

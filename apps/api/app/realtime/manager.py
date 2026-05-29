@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
-from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from typing import Any
 from uuid import UUID
@@ -69,20 +68,34 @@ class ConnectionManager:
 
     async def _fanout(self, room_id: UUID) -> None:
         channel = room_channel(str(room_id))
-        subscription = await self._broker.subscribe(channel)
         try:
-            async for event in subscription:
+            while True:
                 async with self._lock:
-                    connections = list(self._rooms.get(room_id, ()))
-                if not connections:
+                    if room_id not in self._rooms:
+                        return
+                try:
+                    subscription = await self._broker.subscribe(channel)
+                except Exception:
+                    log.warning("ws.fanout.subscribe_failed", room_id=str(room_id))
+                    await asyncio.sleep(1.0)
                     continue
-                await asyncio.gather(
-                    *(self._send(ws, event) for ws in connections), return_exceptions=True
-                )
+                try:
+                    async for event in subscription:
+                        async with self._lock:
+                            connections = list(self._rooms.get(room_id, ()))
+                        if not connections:
+                            continue
+                        await asyncio.gather(
+                            *(self._send(ws, event) for ws in connections),
+                            return_exceptions=True,
+                        )
+                except Exception:
+                    log.warning("ws.fanout.stream_error", room_id=str(room_id))
+                finally:
+                    await subscription.close()
+                await asyncio.sleep(0.5)
         except asyncio.CancelledError:
             pass
-        finally:
-            await subscription.close()
 
     async def _send(self, ws: WebSocket, event: dict[str, Any]) -> None:
         if ws.client_state is not WebSocketState.CONNECTED:
@@ -99,6 +112,3 @@ async def _safe_close(ws: WebSocket, *, reason: str) -> None:
             await ws.send_json({"type": "error", "data": {"code": reason}})
         with suppress(Exception):
             await ws.close(code=4000)
-
-
-SafeAwait = Callable[[], Awaitable[Any]]

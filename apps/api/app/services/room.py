@@ -5,6 +5,7 @@ import secrets
 from datetime import timedelta
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import (
@@ -50,7 +51,7 @@ from app.schemas.room import (
 from app.schemas.tag import TagRead
 from app.schemas.user import UserPublic
 from app.services.geo import bounding_box, haversine_km
-from app.services.notifications import NotificationService
+from app.services.notifications import NotificationDraft, NotificationService
 from app.services.tag import TagService
 from app.utils.time import ensure_utc, utc_now
 
@@ -130,6 +131,8 @@ class RoomService:
                 raise ValidationError("ends_at must be after starts_at", code="invalid_schedule")
         for field, value in changes.items():
             setattr(room, field, value)
+        if room.visibility == RoomVisibility.PRIVATE and not room.invite_code:
+            room.invite_code = await self._generate_invite_code()
         await self._record_event(
             room=room,
             actor_id=actor_id,
@@ -327,24 +330,24 @@ class RoomService:
         items, total = await self.rooms.list_for_member(
             user_id, limit=limit, offset=offset, include_archived=include_archived
         )
-        summaries = [await self._to_summary(room, user_id) for room in items]
+        summaries = await self._summaries(items, user_id)
         return Page[RoomSummary](items=summaries, total=total, limit=limit, offset=offset)
 
     async def list_owned(self, *, user_id: UUID, limit: int, offset: int) -> Page[RoomSummary]:
         items, total = await self.rooms.list_owned(user_id, limit=limit, offset=offset)
-        summaries = [await self._to_summary(room, user_id) for room in items]
+        summaries = await self._summaries(items, user_id)
         return Page[RoomSummary](items=summaries, total=total, limit=limit, offset=offset)
 
     async def list_past(self, *, user_id: UUID, limit: int, offset: int) -> Page[RoomSummary]:
         items, total = await self.rooms.list_past_for_member(
             user_id, now=utc_now(), limit=limit, offset=offset
         )
-        summaries = [await self._to_summary(room, user_id) for room in items]
+        summaries = await self._summaries(items, user_id)
         return Page[RoomSummary](items=summaries, total=total, limit=limit, offset=offset)
 
     async def list_saved(self, *, user_id: UUID, limit: int, offset: int) -> Page[RoomSummary]:
         items, total = await self.saved.list_for_user(user_id, limit=limit, offset=offset)
-        summaries = [await self._to_summary(room, user_id) for room in items]
+        summaries = await self._summaries(items, user_id)
         return Page[RoomSummary](items=summaries, total=total, limit=limit, offset=offset)
 
     async def save_room(self, *, user_id: UUID, room_id: UUID) -> None:
@@ -378,7 +381,7 @@ class RoomService:
             offset=offset,
             excluded_user_ids=excluded,
         )
-        summaries = [await self._to_summary(room, actor_id) for room in items]
+        summaries = await self._summaries(items, actor_id)
         return Page[RoomSummary](items=summaries, total=total, limit=limit, offset=offset)
 
     async def search_nearby(
@@ -425,17 +428,18 @@ class RoomService:
                 )
             )
         elif sort == "members":
-            counts = {pair[0].id: await self.members.count_active(pair[0].id) for pair in within}
-            within.sort(key=lambda pair: counts[pair[0].id], reverse=True)
+            counts = await self.members.count_active_for_rooms([pair[0].id for pair in within])
+            within.sort(key=lambda pair: counts.get(pair[0].id, 0), reverse=True)
         else:
             within.sort(key=lambda pair: pair[1])
 
         total = len(within)
         sliced = within[offset : offset + limit]
-        items: list[NearbyRoom] = []
-        for room, distance in sliced:
-            summary = await self._to_summary(room, actor_id)
-            items.append(NearbyRoom(**summary.model_dump(), distance_km=round(distance, 4)))
+        summaries = await self._summaries([room for room, _ in sliced], actor_id)
+        items = [
+            NearbyRoom(**summary.model_dump(), distance_km=round(distance, 4))
+            for summary, (_, distance) in zip(summaries, sliced, strict=True)
+        ]
         return Page[NearbyRoom](items=items, total=total, limit=limit, offset=offset)
 
     async def join_with_location(
@@ -490,9 +494,7 @@ class RoomService:
         )
         await self._promote_from_waitlist_if_room(room)
         await self.session.commit()
-        await self._broadcast_room_event(
-            room.id, WsEvent.MEMBER_LEFT, {"user_id": str(user_id)}
-        )
+        await self._broadcast_room_event(room.id, WsEvent.MEMBER_LEFT, {"user_id": str(user_id)})
 
     async def kick(self, *, room_id: UUID, actor_id: UUID, target_user_id: UUID) -> None:
         room = await self._get_or_404(room_id)
@@ -614,24 +616,33 @@ class RoomService:
         if not await self.members.is_active_member(room_id, user_id):
             raise AuthorizationError("Not a member of this room", code="not_member")
 
-    async def _to_summary(self, room: Room, actor_id: UUID) -> RoomSummary:
-        is_owner = room.owner_id == actor_id
-        member = await self.members.get_member(room.id, actor_id)
-        is_member = is_owner or (member is not None and member.state == MembershipState.ACTIVE)
-        member_count = await self.members.count_active(room.id)
-        is_saved = await self.saved.exists(user_id=actor_id, room_id=room.id)
-        tags = await self.room_tags.list_tags_for_room(room.id)
-        return RoomSummary(
-            **self._room_dict(room, actor_id=actor_id, is_member=is_member),
-            owner=UserPublic.model_validate(room.owner),
-            member_count=member_count,
-            is_member=is_member,
-            is_owner=is_owner,
-            is_saved=is_saved,
-            role=member.role if member is not None else None,
-            state=member.state if member is not None else None,
-            tags=[TagRead.model_validate(t) for t in tags],
-        )
+    async def _summaries(self, rooms: list[Room], actor_id: UUID) -> list[RoomSummary]:
+        if not rooms:
+            return []
+        room_ids = [room.id for room in rooms]
+        counts = await self.members.count_active_for_rooms(room_ids)
+        memberships = await self.members.memberships_for_user(actor_id, room_ids)
+        saved_ids = await self.saved.saved_ids(actor_id, room_ids)
+        tags_map = await self.room_tags.tags_for_rooms(room_ids)
+        summaries: list[RoomSummary] = []
+        for room in rooms:
+            member = memberships.get(room.id)
+            is_owner = room.owner_id == actor_id
+            is_member = is_owner or (member is not None and member.state == MembershipState.ACTIVE)
+            summaries.append(
+                RoomSummary(
+                    **self._room_dict(room, actor_id=actor_id, is_member=is_member),
+                    owner=UserPublic.model_validate(room.owner),
+                    member_count=counts.get(room.id, 0),
+                    is_member=is_member,
+                    is_owner=is_owner,
+                    is_saved=room.id in saved_ids,
+                    role=member.role if member is not None else None,
+                    state=member.state if member is not None else None,
+                    tags=[TagRead.model_validate(t) for t in tags_map.get(room.id, [])],
+                )
+            )
+        return summaries
 
     async def _add_member(self, *, room: Room, user_id: UUID) -> tuple[RoomMember, bool]:
         existing = await self.members.get_member(room.id, user_id)
@@ -642,6 +653,7 @@ class RoomService:
                 raise ConflictError("Already a member of this room", code="already_member")
             if existing.state == MembershipState.WAITLISTED:
                 raise ConflictError("Already on the waitlist", code="already_waitlisted")
+        await self.rooms.lock(room.id)
         current = await self.members.count_active(room.id)
         waitlisted = current >= room.max_members
         member = RoomMember(
@@ -650,16 +662,23 @@ class RoomService:
             role=RoomRole.MEMBER,
             state=MembershipState.WAITLISTED if waitlisted else MembershipState.ACTIVE,
         )
-        await self.members.add(member)
-        await self._record_event(
-            room=room,
-            actor_id=user_id,
-            event_type=(
-                RoomEventType.WAITLIST_JOINED if waitlisted else RoomEventType.MEMBER_JOINED
-            ),
-            target_user_id=user_id,
-        )
-        await self.session.commit()
+        try:
+            await self.members.add(member)
+            await self._record_event(
+                room=room,
+                actor_id=user_id,
+                event_type=(
+                    RoomEventType.WAITLIST_JOINED if waitlisted else RoomEventType.MEMBER_JOINED
+                ),
+                target_user_id=user_id,
+            )
+            await self.session.commit()
+        except IntegrityError:
+            await self.session.rollback()
+            raced = await self.members.get_member(room.id, user_id)
+            if raced is not None:
+                return raced, raced.state != MembershipState.ACTIVE
+            raise
         if not waitlisted:
             await self._broadcast_room_event(
                 room.id, WsEvent.MEMBER_JOINED, {"user_id": str(user_id)}
@@ -801,13 +820,16 @@ class RoomService:
         members, _ = await self.members.list_for_room(
             room.id, limit=500, offset=0, state=MembershipState.ACTIVE
         )
-        for m in members:
-            if m.user_id == actor_id:
-                continue
-            await self.notify_service.notify(
-                user_id=m.user_id,
-                type=type,
-                actor_id=actor_id,
-                room_id=room.id,
-                payload={"room_name": room.name},
-            )
+        await self.notify_service.notify_many(
+            [
+                NotificationDraft(
+                    user_id=m.user_id,
+                    type=type,
+                    actor_id=actor_id,
+                    room_id=room.id,
+                    payload={"room_name": room.name},
+                )
+                for m in members
+                if m.user_id != actor_id
+            ]
+        )

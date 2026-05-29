@@ -70,6 +70,14 @@ class RoomUpdate(BaseModel):
     cover_photo_url: PhotoUrl | None = None
     description: Description | None = None
 
+    @model_validator(mode="after")
+    def _validate(self) -> RoomUpdate:
+        if self.visibility == RoomVisibility.DM:
+            raise ValueError("Rooms cannot be converted to DMs")
+        if self.starts_at and self.ends_at and self.ends_at <= self.starts_at:
+            raise ValueError("ends_at must be after starts_at")
+        return self
+
 
 class RoomDetailCreate(BaseModel):
     heading: Heading

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from datetime import timedelta
+from datetime import datetime, timedelta
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -32,10 +33,17 @@ from app.schemas.message import (
     UnreadResponse,
 )
 from app.schemas.user import UserPublic
-from app.services.notifications import NotificationService
+from app.services.notifications import NotificationDraft, NotificationService
 from app.utils.time import ensure_utc, utc_now
 
 _MENTION_RE = re.compile(r"@([\w.\-]+@[\w.\-]+\.[\w]+|[\w.\-]{1,80})")
+_RECOVERY_CAP = 500
+_RECOVERY_BATCH = 200
+
+
+def _message_sort_key(message: Message) -> tuple[datetime, UUID]:
+    created = ensure_utc(message.created_at) or message.created_at
+    return (created, message.id)
 
 
 class MessageService:
@@ -106,28 +114,44 @@ class MessageService:
             parent_message_id=payload.parent_message_id,
             client_message_id=payload.client_message_id,
         )
-        await self.messages.add(message)
-        await self.session.commit()
+        try:
+            await self.messages.add(message)
+            await self.session.commit()
+        except IntegrityError:
+            await self.session.rollback()
+            if payload.client_message_id is not None:
+                existing = await self.messages.find_by_idempotency(
+                    room.id, sender_id, payload.client_message_id
+                )
+                if existing is not None:
+                    return self._to_read(existing, sender_id, set()), [], False
+            raise
         await self.session.refresh(message, attribute_names=["sender", "reactions"])
         mentioned = await self._resolve_mentions(payload.body, room_id=room.id)
-        for uid in mentioned:
-            await self.notify_service.notify(
+        preview = message.body[:200]
+        drafts = [
+            NotificationDraft(
                 user_id=uid,
                 type=NotificationType.MENTION,
                 actor_id=sender_id,
                 room_id=room.id,
                 message_id=message.id,
-                payload={"body": message.body[:200]},
+                payload={"body": preview},
             )
+            for uid in mentioned
+        ]
         if parent_author_id is not None and parent_author_id not in set(mentioned):
-            await self.notify_service.notify(
-                user_id=parent_author_id,
-                type=NotificationType.REPLY,
-                actor_id=sender_id,
-                room_id=room.id,
-                message_id=message.id,
-                payload={"body": message.body[:200]},
+            drafts.append(
+                NotificationDraft(
+                    user_id=parent_author_id,
+                    type=NotificationType.REPLY,
+                    actor_id=sender_id,
+                    room_id=room.id,
+                    message_id=message.id,
+                    payload={"body": preview},
+                )
             )
+        await self.notify_service.notify_many(drafts)
         read = self._to_read(message, sender_id, set())
         return read, mentioned, True
 
@@ -204,8 +228,15 @@ class MessageService:
             emoji=payload.emoji,
             created_at=utc_now(),
         )
-        await self.reactions.add(reaction)
-        await self.session.commit()
+        try:
+            await self.reactions.add(reaction)
+            await self.session.commit()
+        except IntegrityError:
+            await self.session.rollback()
+            duplicate = await self.reactions.get_reaction(message.id, actor_id, payload.emoji)
+            if duplicate is not None:
+                return duplicate
+            raise
         if message.sender_id != actor_id:
             await self.notify_service.notify(
                 user_id=message.sender_id,
@@ -268,6 +299,10 @@ class MessageService:
         state = await self.read_states.get_for(room_id, actor_id) or RoomReadState(
             room_id=room_id, user_id=actor_id
         )
+        if state.last_read_message_id is not None:
+            current = await self.messages.get(state.last_read_message_id)
+            if current is not None and _message_sort_key(current) >= _message_sort_key(message):
+                return state
         state.last_read_message_id = message.id
         state.last_read_at = utc_now()
         if state not in self.session:
@@ -343,6 +378,13 @@ class MessageService:
             raise NotFoundError("Room not found", code="room_not_found")
         if room.status != RoomStatus.ACTIVE:
             raise ConflictError("Room is not active", code="room_inactive")
+        now = utc_now()
+        expires_at = ensure_utc(room.expires_at)
+        if expires_at is not None and expires_at <= now:
+            raise ConflictError("Room has expired", code="room_expired")
+        ends_at = ensure_utc(room.ends_at)
+        if ends_at is not None and ends_at <= now:
+            raise ConflictError("Room has ended", code="room_ended")
         return room
 
     async def _ensure_member(self, room_id: UUID, user_id: UUID) -> None:
@@ -365,13 +407,31 @@ class MessageService:
 
     async def list_for_recovery(
         self, *, room_id: UUID, actor_id: UUID, since_message_id: UUID
-    ) -> list[MessageRead]:
+    ) -> tuple[list[MessageRead], bool]:
         await self._ensure_member(room_id, actor_id)
-        items = await self.messages.page(
-            room_id=room_id, limit=200, before_id=None, after_id=since_message_id
-        )
+        anchor = await self.messages.get(since_message_id)
+        if anchor is None or anchor.room_id != room_id:
+            return [], False
+        cursor_created, cursor_id = _message_sort_key(anchor)
+        collected: list[Message] = []
+        truncated = False
+        while True:
+            rows = await self.messages.page_after_asc(
+                room_id=room_id,
+                after_created_at=cursor_created,
+                after_id=cursor_id,
+                limit=_RECOVERY_BATCH,
+            )
+            collected.extend(rows)
+            if len(rows) < _RECOVERY_BATCH:
+                break
+            if len(collected) >= _RECOVERY_CAP:
+                truncated = True
+                collected = collected[:_RECOVERY_CAP]
+                break
+            cursor_created, cursor_id = _message_sort_key(rows[-1])
         blocked = await self.blocks.blocked_either_way(actor_id)
-        return [self._to_read(m, actor_id, blocked) for m in items]
+        return [self._to_read(m, actor_id, blocked) for m in collected], truncated
 
     @staticmethod
     def channel_for(room_id: UUID) -> str:
