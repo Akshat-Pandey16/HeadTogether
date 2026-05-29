@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Archive,
+  ArrowLeft,
   Bookmark,
   BookmarkCheck,
   CalendarClock,
@@ -19,19 +20,15 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toaster";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { LoadingPage } from "@/components/shared/loading";
+import { RoomMap } from "@/components/map/room-map-lazy";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { errorMessage } from "@/lib/api-error";
+import { formatCoord } from "@/lib/format";
+import { purposeMeta } from "@/lib/purpose";
 import { useAuth } from "@/providers/auth-provider";
 import { useRoomSocket } from "@/features/chat/use-room-socket";
 import { EditRoomDialog } from "./edit-room-dialog";
@@ -50,6 +47,7 @@ import {
   useRotateInviteCode,
   useSaveRoom,
 } from "./room-queries";
+import type { NearbyRoom } from "@/types";
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {
@@ -59,6 +57,16 @@ const formatDate = (iso: string) =>
     hour: "2-digit",
     minute: "2-digit",
   });
+
+const StatBox = ({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) => (
+  <div className="rounded-sm border-2 border-ink bg-card p-3">
+    <p className="font-mono text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+      {label}
+    </p>
+    <p className="mt-1 font-display text-xl font-bold leading-none">{value}</p>
+    {sub && <p className="mt-1 font-mono text-[11px] text-muted-foreground">{sub}</p>}
+  </div>
+);
 
 export const RoomDetailPage = () => {
   const { roomId = "" } = useParams();
@@ -79,27 +87,26 @@ export const RoomDetailPage = () => {
   const isOwner = useMemo(() => room.data?.owner_id === user?.id, [room.data, user?.id]);
   useRoomSocket(room.data?.is_member ? roomId : "");
 
-  if (room.isLoading) return <LoadingPage />;
-  if (!room.data) return <div className="p-10 text-center text-muted-foreground">Not found.</div>;
+  if (room.isLoading) return <LoadingPage label="Loading room" />;
+  if (!room.data)
+    return (
+      <div className="grid h-full place-items-center text-muted-foreground">Room not found.</div>
+    );
 
   const r = room.data;
+  const meta = purposeMeta(r.purpose);
+  const Icon = meta.icon;
   const canManage = r.is_owner || r.role === "moderator";
+  const mapRoom: NearbyRoom = { ...r, distance_km: 0 };
 
   const handleJoin = async () => {
     if (!coords) {
       request();
-      toast({
-        title: "Location required",
-        description: "Grant location to verify you're within radius.",
-      });
+      toast({ title: "Location required", description: "Grant location to verify you're in range." });
       return;
     }
     try {
-      await joinRoom.mutateAsync({
-        roomId: r.id,
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-      });
+      await joinRoom.mutateAsync({ roomId: r.id, latitude: coords.latitude, longitude: coords.longitude });
       toast({ title: "Joined room" });
     } catch (e) {
       toast({ variant: "destructive", title: "Join failed", description: errorMessage(e) });
@@ -148,234 +155,160 @@ export const RoomDetailPage = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6 md:px-6">
-      {r.cover_photo_url && (
-        <div className="aspect-[3/1] w-full overflow-hidden rounded-xl bg-muted">
-          <img
-            src={r.cover_photo_url}
-            alt={r.name}
-            className="h-full w-full object-cover"
-          />
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">{r.name}</h1>
-            <Badge variant="secondary">
-              {r.purpose === "custom" && r.custom_purpose ? r.custom_purpose : r.purpose}
-            </Badge>
-            {r.status !== "active" && <Badge variant="outline">{r.status}</Badge>}
-            <Badge variant="outline">{r.visibility}</Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {r.description ?? "No description provided."}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {r.is_member ? (
-            <>
-              <Button asChild>
-                <a href={`/rooms/${r.id}/chat`}>
-                  <MessageSquare className="h-4 w-4" /> Open chat
-                </a>
-              </Button>
-              {!isOwner && (
-                <Button variant="outline" onClick={handleLeave} disabled={leaveRoom.isPending}>
-                  <LogOut className="h-4 w-4" /> Leave
-                </Button>
-              )}
-            </>
-          ) : (
-            <Button onClick={handleJoin} disabled={joinRoom.isPending}>
-              {joinRoom.isPending ? "Joining…" : "Join room"}
-            </Button>
-          )}
-          <Button variant="ghost" onClick={toggleSave} disabled={saveRoom.isPending}>
-            {r.is_saved ? (
-              <BookmarkCheck className="h-4 w-4" />
-            ) : (
-              <Bookmark className="h-4 w-4" />
-            )}
-            {r.is_saved ? "Saved" : "Save"}
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Owner</CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center gap-3">
-            <UserAvatar user={r.owner} />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">
-                {r.owner.first_name} {r.owner.last_name}
-              </p>
-              <p className="text-xs text-muted-foreground">Owner</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <Users className="h-4 w-4" /> Members
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">{r.member_count}</p>
-            <p className="text-xs text-muted-foreground">
-              of {r.max_members} allowed
-              {r.waitlist_count > 0 && (
-                <>
-                  {" · "}
-                  <span className="inline-flex items-center gap-1">
-                    <Hourglass className="h-3 w-3" />
-                    {r.waitlist_count} waitlisted
-                  </span>
-                </>
-              )}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <MapPin className="h-4 w-4" /> Location
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm">
-              {r.latitude.toFixed(3)}, {r.longitude.toFixed(3)}
-            </p>
-            <p className="text-xs text-muted-foreground">{r.radius_km} km radius</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {(r.starts_at || r.ends_at || r.expires_at) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <CalendarClock className="h-4 w-4" /> Schedule
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            {r.starts_at && (
-              <p>
-                <span className="text-muted-foreground">Starts: </span>
-                {formatDate(r.starts_at)}
-              </p>
-            )}
-            {r.ends_at && (
-              <p>
-                <span className="text-muted-foreground">Ends: </span>
-                {formatDate(r.ends_at)}
-              </p>
-            )}
-            {r.expires_at && (
-              <p>
-                <span className="text-muted-foreground">Auto-expires: </span>
-                {formatDate(r.expires_at)}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      <Tabs defaultValue="about">
-        <TabsList>
-          <TabsTrigger value="about">About</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
-          {r.is_member && <TabsTrigger value="activity">Activity</TabsTrigger>}
-          {canManage && <TabsTrigger value="admin">Admin</TabsTrigger>}
-        </TabsList>
-
-        <TabsContent value="about" className="space-y-4">
-          <RoomDetailsPanel roomId={r.id} details={r.details} canManage={canManage} />
-          {r.invite_code && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Invite code</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-wrap items-center gap-2">
-                <code className="rounded bg-muted px-2 py-1 text-sm">{r.invite_code}</code>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copyInvite(r.invite_code as string)}
-                >
-                  <Copy className="h-3.5 w-3.5" /> Copy
-                </Button>
-                {r.is_owner && (
-                  <Button
-                    variant={confirmRotate ? "destructive" : "ghost"}
-                    size="sm"
-                    onClick={handleRotateInvite}
-                    disabled={rotateInvite.isPending}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    {confirmRotate ? "Confirm rotate" : "Rotate"}
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="members">
-          <RoomMembersPanel roomId={r.id} isOwner={r.is_owner} role={r.role} />
-        </TabsContent>
-
-        {r.is_member && (
-          <TabsContent value="activity">
-            <RoomEventsPanel roomId={r.id} />
-          </TabsContent>
+    <div className="h-full overflow-y-auto">
+      <div
+        className="relative border-b-2 border-ink"
+        style={{ backgroundColor: r.cover_photo_url ? undefined : meta.color }}
+      >
+        {r.cover_photo_url ? (
+          <>
+            <img src={r.cover_photo_url} alt={r.name} className="h-44 w-full object-cover md:h-56" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+          </>
+        ) : (
+          <div className="grain h-44 w-full md:h-56" />
         )}
 
-        {canManage && (
-          <TabsContent value="admin" className="space-y-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Shield className="h-4 w-4" /> Administration
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Use these actions carefully. Archiving stops chat; deleting can be restored
-                  within 7 days.
-                </p>
-                <Separator />
+        <Link
+          to="/"
+          className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-sm border-2 border-ink bg-card text-foreground transition hover:bg-secondary"
+        >
+          <ArrowLeft className="h-4 w-4" strokeWidth={2.5} />
+        </Link>
+
+        <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-3 p-4 md:p-6">
+          <div className={r.cover_photo_url ? "text-white" : "text-black"}>
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-sm border-2 border-ink bg-card px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-foreground">
+                <Icon className="h-3 w-3" strokeWidth={2.5} />
+                {r.purpose === "custom" && r.custom_purpose ? r.custom_purpose : meta.label}
+              </span>
+              <span className="rounded-sm border-2 border-ink bg-card px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-foreground">
+                {r.visibility}
+              </span>
+              {r.status !== "active" && (
+                <span className="rounded-sm border-2 border-ink bg-destructive px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-destructive-foreground">
+                  {r.status}
+                </span>
+              )}
+            </div>
+            <h1 className="font-display text-3xl font-extrabold leading-none tracking-tight md:text-4xl">
+              {r.name}
+            </h1>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {r.is_member ? (
+              <>
+                <Button variant="acid" asChild>
+                  <Link to={`/rooms/${r.id}/chat`}>
+                    <MessageSquare className="h-4 w-4" strokeWidth={2.5} /> Open chat
+                  </Link>
+                </Button>
+                {!isOwner && (
+                  <Button variant="outline" onClick={handleLeave} disabled={leaveRoom.isPending}>
+                    <LogOut className="h-4 w-4" strokeWidth={2.5} /> Leave
+                  </Button>
+                )}
+              </>
+            ) : (
+              <Button variant="acid" onClick={handleJoin} disabled={joinRoom.isPending}>
+                {joinRoom.isPending ? "Joining…" : "Join room"}
+              </Button>
+            )}
+            <Button variant="outline" size="icon" onClick={toggleSave} disabled={saveRoom.isPending}>
+              {r.is_saved ? (
+                <BookmarkCheck className="h-4 w-4" strokeWidth={2.5} />
+              ) : (
+                <Bookmark className="h-4 w-4" strokeWidth={2.5} />
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px]">
+        <main className="min-w-0 border-b-2 border-ink p-4 md:p-6 lg:border-b-0 lg:border-r-2">
+          <Tabs defaultValue="about">
+            <TabsList>
+              <TabsTrigger value="about">About</TabsTrigger>
+              <TabsTrigger value="members">Members</TabsTrigger>
+              {r.is_member && <TabsTrigger value="activity">Activity</TabsTrigger>}
+              {canManage && <TabsTrigger value="admin">Admin</TabsTrigger>}
+            </TabsList>
+
+            <TabsContent value="about" className="space-y-4">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {r.description || "No description provided."}
+              </p>
+              {r.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {r.tags.map((t) => (
+                    <Badge key={t.id} variant="outline">
+                      {t.label}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <RoomDetailsPanel roomId={r.id} details={r.details} canManage={canManage} />
+              {r.invite_code && (
+                <div className="rounded-sm border-2 border-ink bg-card p-4">
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    Invite code
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <code className="rounded-sm border-2 border-ink bg-secondary px-2 py-1 font-mono text-sm font-bold">
+                      {r.invite_code}
+                    </code>
+                    <Button variant="outline" size="sm" onClick={() => copyInvite(r.invite_code!)}>
+                      <Copy className="h-3.5 w-3.5" strokeWidth={2.5} /> Copy
+                    </Button>
+                    {r.is_owner && (
+                      <Button
+                        variant={confirmRotate ? "destructive" : "ghost"}
+                        size="sm"
+                        onClick={handleRotateInvite}
+                        disabled={rotateInvite.isPending}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.5} />
+                        {confirmRotate ? "Confirm" : "Rotate"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="members">
+              <RoomMembersPanel roomId={r.id} isOwner={r.is_owner} role={r.role} />
+            </TabsContent>
+
+            {r.is_member && (
+              <TabsContent value="activity">
+                <RoomEventsPanel roomId={r.id} />
+              </TabsContent>
+            )}
+
+            {canManage && (
+              <TabsContent value="admin" className="space-y-4">
+                <div className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  <Shield className="h-4 w-4" strokeWidth={2.5} /> Administration
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <EditRoomDialog room={r} />
                   {r.status === "active" && (
-                    <Button
-                      variant="outline"
-                      onClick={() => archive.mutate(r.id)}
-                      disabled={archive.isPending}
-                    >
-                      <Archive className="h-4 w-4" /> Archive
+                    <Button variant="outline" onClick={() => archive.mutate(r.id)} disabled={archive.isPending}>
+                      <Archive className="h-4 w-4" strokeWidth={2.5} /> Archive
                     </Button>
                   )}
                   {r.status === "archived" && (
-                    <Button
-                      variant="outline"
-                      onClick={() => reactivate.mutate(r.id)}
-                      disabled={reactivate.isPending}
-                    >
-                      <RefreshCw className="h-4 w-4" /> Reactivate
+                    <Button variant="outline" onClick={() => reactivate.mutate(r.id)} disabled={reactivate.isPending}>
+                      <RefreshCw className="h-4 w-4" strokeWidth={2.5} /> Reactivate
                     </Button>
                   )}
                   {r.is_owner && r.status === "deleted" && (
-                    <Button
-                      variant="outline"
-                      onClick={() => restore.mutate(r.id)}
-                      disabled={restore.isPending}
-                    >
-                      <Undo2 className="h-4 w-4" /> Restore
+                    <Button variant="outline" onClick={() => restore.mutate(r.id)} disabled={restore.isPending}>
+                      <Undo2 className="h-4 w-4" strokeWidth={2.5} /> Restore
                     </Button>
                   )}
                   {r.is_owner && <TransferOwnershipDialog roomId={r.id} currentOwnerId={r.owner_id} />}
@@ -383,23 +316,102 @@ export const RoomDetailPage = () => {
                     <Button
                       variant="destructive"
                       onClick={async () => {
-                        if (!window.confirm("Delete room? This can be restored within 7 days.")) {
-                          return;
-                        }
+                        if (!window.confirm("Delete room? Restorable within 7 days.")) return;
                         await remove.mutateAsync(r.id);
                         navigate("/", { replace: true });
                       }}
                       disabled={remove.isPending}
                     >
-                      <Trash2 className="h-4 w-4" /> Delete
+                      <Trash2 className="h-4 w-4" strokeWidth={2.5} /> Delete
                     </Button>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
-      </Tabs>
+              </TabsContent>
+            )}
+          </Tabs>
+        </main>
+
+        <aside className="space-y-4 p-4 md:p-6">
+          <div className="flex items-center gap-3 rounded-sm border-2 border-ink bg-card p-3">
+            <UserAvatar user={r.owner} className="h-11 w-11" />
+            <div className="min-w-0">
+              <p className="truncate font-bold leading-tight">
+                {r.owner.first_name} {r.owner.last_name}
+              </p>
+              <Link
+                to={`/users/${r.owner.id}`}
+                className="font-mono text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                Host · view profile
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <StatBox
+              label="Members"
+              value={`${r.member_count}/${r.max_members}`}
+              sub={r.waitlist_count > 0 ? `${r.waitlist_count} waitlisted` : undefined}
+            />
+            <StatBox label="Radius" value={`${r.radius_km}km`} sub="broadcast range" />
+          </div>
+
+          <div className="overflow-hidden rounded-sm border-2 border-ink">
+            <div className="h-44">
+              <RoomMap
+                center={{ latitude: r.latitude, longitude: r.longitude }}
+                rooms={[mapRoom]}
+                showCenter={false}
+                zoom={14}
+              />
+            </div>
+            <div className="flex items-center gap-2 border-t-2 border-ink bg-card px-3 py-2">
+              <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {formatCoord(r.latitude, r.longitude)}
+              </span>
+            </div>
+          </div>
+
+          {(r.starts_at || r.ends_at || r.expires_at) && (
+            <div className="space-y-2 rounded-sm border-2 border-ink bg-card p-3">
+              <p className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                <CalendarClock className="h-3.5 w-3.5" strokeWidth={2.5} /> Schedule
+              </p>
+              {r.starts_at && (
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Starts </span>
+                  {formatDate(r.starts_at)}
+                </p>
+              )}
+              {r.ends_at && (
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Ends </span>
+                  {formatDate(r.ends_at)}
+                </p>
+              )}
+              {r.expires_at && (
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Expires </span>
+                  {formatDate(r.expires_at)}
+                </p>
+              )}
+            </div>
+          )}
+
+          {r.waitlist_count > 0 && (
+            <div className="flex items-center gap-2 rounded-sm border-2 border-dashed border-border p-3 font-mono text-xs text-muted-foreground">
+              <Hourglass className="h-4 w-4" strokeWidth={2.5} />
+              {r.waitlist_count} waiting · auto-promoted as space frees up
+            </div>
+          )}
+
+          <p className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+            <Users className="h-3.5 w-3.5" strokeWidth={2.5} /> Created{" "}
+            {new Date(r.created_at).toLocaleDateString()}
+          </p>
+        </aside>
+      </div>
     </div>
   );
 };

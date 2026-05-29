@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { ChevronDown, ChevronUp, Crown, UserMinus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,31 +39,31 @@ export const RoomMembersPanel = ({ roomId, isOwner, role }: Props) => {
   const canManage = isOwner || role === RoomRole.MODERATOR;
 
   if (members.isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading members…</p>;
+    return <p className="font-mono text-xs text-muted-foreground">Loading members…</p>;
   }
   if (!members.data || members.data.items.length === 0) {
-    return <p className="text-sm text-muted-foreground">No members yet.</p>;
+    return <p className="font-mono text-xs text-muted-foreground">No members yet.</p>;
   }
 
   return (
-    <div className="space-y-2">
+    <div className="grid gap-2 sm:grid-cols-2">
       {members.data.items.map((m) => (
         <div
           key={m.user.id}
-          className="flex items-center justify-between rounded-md border border-border p-3"
+          className="flex items-center justify-between gap-2 rounded-sm border-2 border-ink bg-card p-2.5"
         >
-          <div className="flex items-center gap-3">
+          <Link to={`/users/${m.user.id}`} className="flex min-w-0 items-center gap-3">
             <UserAvatar user={m.user} />
-            <div>
-              <p className="text-sm font-medium">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold">
                 {m.user.first_name} {m.user.last_name}
               </p>
-              <p className="text-xs text-muted-foreground">
-                {m.role === RoomRole.OWNER && <Crown className="mr-1 inline h-3 w-3" />}
-                {m.role.charAt(0).toUpperCase() + m.role.slice(1)} · {stateLabel[m.state]}
+              <p className="flex items-center gap-1 font-mono text-[10px] uppercase text-muted-foreground">
+                {m.role === RoomRole.OWNER && <Crown className="h-3 w-3" strokeWidth={2.5} />}
+                {m.role} · {stateLabel[m.state]}
               </p>
             </div>
-          </div>
+          </Link>
           {canManage && m.role !== RoomRole.OWNER && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -55,8 +55,8 @@ class NotificationService:
         await self.session.commit()
         return token
 
-    async def revoke_token(self, *, user_id: UUID, token: str) -> None:
-        record = await self.tokens.get_by_token(token)
+    async def revoke_token(self, *, user_id: UUID, token_id: UUID) -> None:
+        record = await self.tokens.get(token_id)
         if record is None or record.user_id != user_id:
             return
         record.revoked_at = utc_now()

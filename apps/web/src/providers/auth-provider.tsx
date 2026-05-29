@@ -39,7 +39,7 @@ export const useAuthActions = () => {
       try {
         await authApi.logout(current.refresh_token);
       } catch {
-        // ignore
+        void 0;
       }
     }
     apiClient.setTokens(null);

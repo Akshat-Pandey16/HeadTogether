@@ -11,14 +11,20 @@ type Props = {
 export const EmptyState = ({ icon, title, description, action, className }: Props) => (
   <div
     className={cn(
-      "flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border p-10 text-center",
+      "flex flex-col items-center justify-center gap-4 rounded-sm border-2 border-dashed border-border p-10 text-center",
       className,
     )}
   >
-    {icon && <div className="text-muted-foreground">{icon}</div>}
-    <div>
-      <p className="text-base font-medium">{title}</p>
-      {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+    {icon && (
+      <div className="flex h-14 w-14 items-center justify-center rounded-sm border-2 border-ink bg-secondary text-foreground">
+        {icon}
+      </div>
+    )}
+    <div className="space-y-1">
+      <p className="font-display text-lg font-bold">{title}</p>
+      {description && (
+        <p className="mx-auto max-w-sm text-sm text-muted-foreground">{description}</p>
+      )}
     </div>
     {action}
   </div>

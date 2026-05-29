@@ -44,28 +44,28 @@ export const RoomEventsPanel = ({ roomId }: Props) => {
   const events = useRoomEvents(roomId);
 
   if (events.isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading activity…</p>;
+    return <p className="font-mono text-xs text-muted-foreground">Loading activity…</p>;
   }
   if (!events.data || events.data.items.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border p-8 text-center">
+      <div className="flex flex-col items-center gap-2 rounded-sm border-2 border-dashed border-border p-8 text-center">
         <History className="h-5 w-5 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">No activity yet.</p>
+        <p className="font-mono text-xs text-muted-foreground">No activity yet.</p>
       </div>
     );
   }
 
   return (
-    <ul className="space-y-2">
+    <ul className="relative space-y-0 border-l-2 border-ink pl-4">
       {events.data.items.map((e) => (
-        <li
-          key={e.id}
-          className="flex items-center justify-between rounded-md border border-border p-3 text-sm"
-        >
-          <span>{describe(e)}</span>
-          <span className="text-xs text-muted-foreground">
-            {formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
-          </span>
+        <li key={e.id} className="relative py-2.5">
+          <span className="absolute -left-[1.32rem] top-3.5 h-2.5 w-2.5 rounded-sm border-2 border-ink bg-acid" />
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-bold">{describe(e)}</span>
+            <span className="shrink-0 font-mono text-[10px] uppercase text-muted-foreground">
+              {formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
+            </span>
+          </div>
         </li>
       ))}
     </ul>

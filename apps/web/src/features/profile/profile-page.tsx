@@ -1,10 +1,8 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
-import { MessageCircle, Shield, ShieldOff, UserPen } from "lucide-react";
+import { ArrowLeft, MessageCircle, Shield, ShieldOff, UserPen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingPage } from "@/components/shared/loading";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { toast } from "@/components/ui/toaster";
@@ -19,7 +17,7 @@ export const ProfilePage = () => {
   const navigate = useNavigate();
   const { user: me } = useAuth();
   const qc = useQueryClient();
-  const [isBlocked, setIsBlocked] = useState(false);
+  const isMe = me?.id === userId;
 
   const profile = useQuery({
     queryKey: ["users", userId],
@@ -27,10 +25,17 @@ export const ProfilePage = () => {
     enabled: !!userId,
   });
 
+  const blocked = useQuery({
+    queryKey: ["moderation", "blocks"],
+    queryFn: () => moderationApi.listBlocked(),
+    enabled: !!me && !isMe,
+  });
+  const isBlocked = (blocked.data ?? []).some((u) => u.id === userId);
+
   const block = useMutation({
     mutationFn: () => moderationApi.block(userId),
     onSuccess: () => {
-      setIsBlocked(true);
+      qc.invalidateQueries({ queryKey: ["moderation", "blocks"] });
       toast({ title: "User blocked" });
     },
     onError: (e) => toast({ variant: "destructive", description: errorMessage(e) }),
@@ -38,7 +43,7 @@ export const ProfilePage = () => {
   const unblock = useMutation({
     mutationFn: () => moderationApi.unblock(userId),
     onSuccess: () => {
-      setIsBlocked(false);
+      qc.invalidateQueries({ queryKey: ["moderation", "blocks"] });
       toast({ title: "User unblocked" });
     },
     onError: (e) => toast({ variant: "destructive", description: errorMessage(e) }),
@@ -52,76 +57,107 @@ export const ProfilePage = () => {
     onError: (e) => toast({ variant: "destructive", description: errorMessage(e) }),
   });
 
-  if (profile.isLoading) return <LoadingPage />;
-  if (!profile.data) return <div className="p-10 text-center">Profile not found.</div>;
+  if (profile.isLoading) return <LoadingPage label="Loading profile" />;
+  if (!profile.data)
+    return <div className="grid h-full place-items-center text-muted-foreground">Profile not found.</div>;
 
-  const isMe = me?.id === userId;
   const u = profile.data;
   const blockPending = block.isPending || unblock.isPending;
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-6 md:px-6">
-      <Card>
-        <CardContent className="flex items-center gap-4 p-6">
-          <UserAvatar user={u} className="h-16 w-16" />
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-semibold">
-              {u.first_name} {u.last_name}
-            </h1>
-            <p className="text-xs uppercase text-muted-foreground">
-              {u.gender} · {u.age}
-            </p>
-            {u.bio && <p className="mt-2 text-sm text-muted-foreground">{u.bio}</p>}
-          </div>
-        </CardContent>
-      </Card>
-
-      {u.tags.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Interests</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-1.5">
-            {u.tags.map((t) => (
-              <Badge key={t.id} variant="outline">
-                {t.label}
-              </Badge>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {!isMe && (
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => startDm.mutate()} disabled={startDm.isPending}>
-            <MessageCircle className="h-4 w-4" /> Message
-          </Button>
-          {isBlocked ? (
-            <Button
-              variant="outline"
-              onClick={() => unblock.mutate()}
-              disabled={blockPending}
-            >
-              <ShieldOff className="h-4 w-4" /> Unblock
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              onClick={() => block.mutate()}
-              disabled={blockPending}
-            >
-              <Shield className="h-4 w-4" /> Block
-            </Button>
-          )}
-          <ReportDialog targetType={ReportTarget.USER} targetId={userId} />
-        </div>
-      )}
-
-      {isMe && (
-        <Button variant="outline" onClick={() => navigate("/settings")}>
-          <UserPen className="h-4 w-4" /> Edit my profile
+    <div className="h-full overflow-y-auto">
+      <div className="relative border-b-2 border-ink bg-acid">
+        <div className="grain h-28 w-full md:h-36" />
+        <Button
+          variant="outline"
+          size="icon"
+          className="absolute left-4 top-4"
+          onClick={() => navigate(-1)}
+        >
+          <ArrowLeft className="h-4 w-4" strokeWidth={2.5} />
         </Button>
-      )}
+      </div>
+
+      <div className="px-4 md:px-8">
+        <div className="-mt-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex items-end gap-4">
+            <UserAvatar user={u} className="h-24 w-24 shadow-brutal" />
+            <div className="pb-1">
+              <h1 className="font-display text-3xl font-extrabold leading-none tracking-tight">
+                {u.first_name} {u.last_name}
+              </h1>
+              <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+                {u.gender.replace(/_/g, " ")} · {u.age}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pb-1">
+            {isMe ? (
+              <Button variant="outline" onClick={() => navigate("/settings")}>
+                <UserPen className="h-4 w-4" strokeWidth={2.5} /> Edit profile
+              </Button>
+            ) : (
+              <>
+                <Button variant="acid" onClick={() => startDm.mutate()} disabled={startDm.isPending}>
+                  <MessageCircle className="h-4 w-4" strokeWidth={2.5} /> Message
+                </Button>
+                {isBlocked ? (
+                  <Button variant="outline" onClick={() => unblock.mutate()} disabled={blockPending}>
+                    <ShieldOff className="h-4 w-4" strokeWidth={2.5} /> Unblock
+                  </Button>
+                ) : (
+                  <Button variant="outline" onClick={() => block.mutate()} disabled={blockPending}>
+                    <Shield className="h-4 w-4" strokeWidth={2.5} /> Block
+                  </Button>
+                )}
+                <ReportDialog targetType={ReportTarget.USER} targetId={userId} />
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-4 py-6 lg:grid-cols-[1fr_320px]">
+          <div className="space-y-4">
+            <section className="rounded-sm border-2 border-ink bg-card p-4">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                Bio
+              </p>
+              <p className="mt-2 text-sm leading-relaxed">
+                {u.bio || <span className="text-muted-foreground">No bio yet.</span>}
+              </p>
+            </section>
+
+            <section className="rounded-sm border-2 border-ink bg-card p-4">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                Interests
+              </p>
+              {u.tags.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {u.tags.map((t) => (
+                    <Badge key={t.id} variant="outline">
+                      {t.label}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">No interests added.</p>
+              )}
+            </section>
+          </div>
+
+          {isBlocked && !isMe && (
+            <aside className="h-fit rounded-sm border-2 border-destructive bg-destructive/10 p-4">
+              <p className="flex items-center gap-2 font-bold text-destructive">
+                <Shield className="h-4 w-4" strokeWidth={2.5} /> Blocked
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                You won't see each other's rooms, messages, or be able to DM.
+              </p>
+            </aside>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

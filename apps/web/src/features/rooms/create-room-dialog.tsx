@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Crosshair, Loader2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,7 +9,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,29 +23,30 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toaster";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { errorMessage } from "@/lib/api-error";
+import { formatCoord } from "@/lib/format";
+import { PURPOSE_OPTIONS } from "@/lib/purpose";
+import { cn } from "@/lib/utils";
 import { RoomPurpose, RoomVisibility } from "@/types";
 import { useCreateRoom } from "./room-queries";
 
-const purposes: { value: RoomPurpose; label: string }[] = [
-  { value: RoomPurpose.PLAY, label: "Play" },
-  { value: RoomPurpose.MOVIE, label: "Movie" },
-  { value: RoomPurpose.TRAVEL, label: "Travel" },
-  { value: RoomPurpose.CHAT, label: "Chat" },
-  { value: RoomPurpose.LANDMARK, label: "Landmark" },
-  { value: RoomPurpose.CUSTOM, label: "Custom" },
-];
+type Props = { open: boolean; onOpenChange: (open: boolean) => void };
 
 const toIso = (value: string): string | undefined => {
   if (!value) return undefined;
   const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return undefined;
-  return d.toISOString();
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
 };
 
-export const CreateRoomDialog = () => {
-  const [open, setOpen] = useState(false);
+const FieldGroup = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div className="space-y-1.5">
+    <Label>{label}</Label>
+    {children}
+  </div>
+);
+
+export const CreateRoomDialog = ({ open, onOpenChange }: Props) => {
   const navigate = useNavigate();
-  const { coords, request } = useGeolocation(false);
+  const { coords, loading, request } = useGeolocation(false);
   const createRoom = useCreateRoom();
   const [name, setName] = useState("");
   const [purpose, setPurpose] = useState<RoomPurpose>(RoomPurpose.CHAT);
@@ -108,11 +108,11 @@ export const CreateRoomDialog = () => {
           .filter(Boolean),
       });
       toast({ title: "Room created", description: room.name });
-      setOpen(false);
+      onOpenChange(false);
       reset();
       navigate(`/rooms/${room.id}`);
-    } catch (e) {
-      toast({ variant: "destructive", title: "Create failed", description: errorMessage(e) });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Create failed", description: errorMessage(err) });
     }
   };
 
@@ -120,173 +120,182 @@ export const CreateRoomDialog = () => {
     <Dialog
       open={open}
       onOpenChange={(o) => {
-        setOpen(o);
+        onOpenChange(o);
         if (o && !coords) request();
       }}
     >
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4" /> New room
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Create a room</DialogTitle>
+          <DialogTitle>Drop a new room</DialogTitle>
           <DialogDescription>
-            Rooms are anchored to your current location. Only people within radius can find it.
+            Rooms are pinned to where you stand. Only people inside the radius can find it.
           </DialogDescription>
         </DialogHeader>
-        <form className="space-y-4" onSubmit={submit}>
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={120}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="purpose">Purpose</Label>
-              <Select value={purpose} onValueChange={(v) => setPurpose(v as RoomPurpose)}>
-                <SelectTrigger id="purpose">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {purposes.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="visibility">Visibility</Label>
-              <Select
-                value={visibility}
-                onValueChange={(v) => setVisibility(v as RoomVisibility)}
-              >
-                <SelectTrigger id="visibility">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={RoomVisibility.PUBLIC}>Public</SelectItem>
-                  <SelectItem value={RoomVisibility.PRIVATE}>Private (invite only)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          {purpose === RoomPurpose.CUSTOM && (
-            <div className="space-y-2">
-              <Label htmlFor="custom">Custom purpose</Label>
+
+        <button
+          type="button"
+          onClick={request}
+          className={cn(
+            "flex items-center justify-between gap-3 rounded-sm border-2 border-ink px-3 py-2.5 text-left transition",
+            coords ? "bg-acid/15" : "bg-secondary hover:bg-accent",
+          )}
+        >
+          <span className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+            <span className="font-mono text-xs">
+              {loading
+                ? "Locating…"
+                : coords
+                  ? formatCoord(coords.latitude, coords.longitude)
+                  : "Tap to set anchor location"}
+            </span>
+          </span>
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Crosshair className="h-4 w-4" strokeWidth={2.5} />
+          )}
+        </button>
+
+        <form className="grid gap-4 sm:grid-cols-2" onSubmit={submit}>
+          <div className="sm:col-span-2">
+            <FieldGroup label="Name">
               <Input
-                id="custom"
-                value={customPurpose}
-                onChange={(e) => setCustomPurpose(e.target.value)}
                 required
-                maxLength={60}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={120}
+                placeholder="Sunset run at the pier"
               />
+            </FieldGroup>
+          </div>
+
+          <FieldGroup label="Purpose">
+            <Select value={purpose} onValueChange={(v) => setPurpose(v as RoomPurpose)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PURPOSE_OPTIONS.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FieldGroup>
+
+          <FieldGroup label="Visibility">
+            <Select value={visibility} onValueChange={(v) => setVisibility(v as RoomVisibility)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={RoomVisibility.PUBLIC}>Public</SelectItem>
+                <SelectItem value={RoomVisibility.PRIVATE}>Private · invite only</SelectItem>
+              </SelectContent>
+            </Select>
+          </FieldGroup>
+
+          {purpose === RoomPurpose.CUSTOM && (
+            <div className="sm:col-span-2">
+              <FieldGroup label="Custom purpose">
+                <Input
+                  value={customPurpose}
+                  onChange={(e) => setCustomPurpose(e.target.value)}
+                  required
+                  maxLength={60}
+                />
+              </FieldGroup>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="radius">Radius (km)</Label>
-              <Input
-                id="radius"
-                type="number"
-                min={0.1}
-                max={200}
-                step={0.1}
-                value={radius}
-                onChange={(e) => setRadius(Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="max">Max members</Label>
-              <Input
-                id="max"
-                type="number"
-                min={2}
-                max={500}
-                value={maxMembers}
-                onChange={(e) => setMaxMembers(Number(e.target.value))}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={1000}
-              placeholder="What's the plan?"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="cover_photo">Cover photo URL</Label>
+
+          <FieldGroup label="Radius (km)">
             <Input
-              id="cover_photo"
-              type="url"
-              value={coverPhotoUrl}
-              onChange={(e) => setCoverPhotoUrl(e.target.value)}
-              placeholder="https://…"
-              maxLength={500}
+              type="number"
+              min={0.1}
+              max={200}
+              step={0.1}
+              value={radius}
+              onChange={(e) => setRadius(Number(e.target.value))}
             />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="starts_at">Starts at</Label>
-              <Input
-                id="starts_at"
-                type="datetime-local"
-                value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ends_at">Ends at</Label>
-              <Input
-                id="ends_at"
-                type="datetime-local"
-                value={endsAt}
-                onChange={(e) => setEndsAt(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="expires_at">Auto-expire at (optional)</Label>
+          </FieldGroup>
+
+          <FieldGroup label="Max members">
             <Input
-              id="expires_at"
+              type="number"
+              min={2}
+              max={500}
+              value={maxMembers}
+              onChange={(e) => setMaxMembers(Number(e.target.value))}
+            />
+          </FieldGroup>
+
+          <div className="sm:col-span-2">
+            <FieldGroup label="Description">
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                maxLength={1000}
+                placeholder="What's the plan?"
+              />
+            </FieldGroup>
+          </div>
+
+          <div className="sm:col-span-2">
+            <FieldGroup label="Cover photo URL">
+              <Input
+                type="url"
+                value={coverPhotoUrl}
+                onChange={(e) => setCoverPhotoUrl(e.target.value)}
+                placeholder="https://…"
+                maxLength={500}
+              />
+            </FieldGroup>
+          </div>
+
+          <FieldGroup label="Starts at">
+            <Input
               type="datetime-local"
-              value={expiresAt}
-              onChange={(e) => setExpiresAt(e.target.value)}
+              value={startsAt}
+              onChange={(e) => setStartsAt(e.target.value)}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="tags">Tags</Label>
+          </FieldGroup>
+
+          <FieldGroup label="Ends at">
             <Input
-              id="tags"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="movies, weekend, downtown"
+              type="datetime-local"
+              value={endsAt}
+              onChange={(e) => setEndsAt(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">Comma-separated, up to 20.</p>
+          </FieldGroup>
+
+          <div className="sm:col-span-2">
+            <FieldGroup label="Auto-expire at (optional)">
+              <Input
+                type="datetime-local"
+                value={expiresAt}
+                onChange={(e) => setExpiresAt(e.target.value)}
+              />
+            </FieldGroup>
           </div>
-          {!coords && (
-            <p className="text-xs text-destructive">
-              We need your location to anchor this room.
-            </p>
-          )}
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+
+          <div className="sm:col-span-2">
+            <FieldGroup label="Tags · comma separated">
+              <Input
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="movies, weekend, downtown"
+              />
+            </FieldGroup>
+          </div>
+
+          <DialogFooter className="sm:col-span-2">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={createRoom.isPending}>
-              {createRoom.isPending ? "Creating…" : "Create"}
+            <Button type="submit" variant="acid" disabled={createRoom.isPending}>
+              {createRoom.isPending ? "Dropping…" : "Drop room"}
             </Button>
           </DialogFooter>
         </form>

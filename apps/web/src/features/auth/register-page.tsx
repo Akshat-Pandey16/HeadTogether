@@ -63,7 +63,10 @@ export const RegisterPage = () => {
       footer={
         <>
           Already have an account?{" "}
-          <Link to="/login" className="font-medium text-foreground hover:underline">
+          <Link
+            to="/login"
+            className="font-bold text-foreground underline decoration-2 underline-offset-2 hover:text-acid"
+          >
             Sign in
           </Link>
         </>
@@ -141,7 +144,7 @@ export const RegisterPage = () => {
             </Select>
           </div>
         </div>
-        <Button type="submit" className="w-full" disabled={submitting}>
+        <Button type="submit" variant="acid" size="lg" className="w-full" disabled={submitting}>
           {submitting ? "Creating account…" : "Create account"}
         </Button>
       </form>

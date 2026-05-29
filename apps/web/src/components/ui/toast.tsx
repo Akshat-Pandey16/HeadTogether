@@ -22,12 +22,12 @@ export const ToastViewport = React.forwardRef<
 ToastViewport.displayName = "ToastViewport";
 
 const toastVariants = cva(
-  "group pointer-events-auto relative flex w-full items-start justify-between gap-3 overflow-hidden rounded-md border border-border bg-card p-4 pr-8 shadow-lg transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-80 data-[state=open]:slide-in-from-right-full",
+  "group pointer-events-auto relative flex w-full items-start justify-between gap-3 overflow-hidden rounded-sm border-2 border-ink bg-card p-4 pr-8 shadow-brutal transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-80 data-[state=open]:slide-in-from-right-full",
   {
     variants: {
       variant: {
         default: "",
-        destructive: "border-destructive text-destructive-foreground bg-destructive",
+        destructive: "bg-destructive text-destructive-foreground",
       },
     },
     defaultVariants: { variant: "default" },
@@ -46,7 +46,7 @@ export const ToastTitle = React.forwardRef<
   React.ElementRef<typeof ToastPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitive.Title>
 >(({ className, ...props }, ref) => (
-  <ToastPrimitive.Title ref={ref} className={cn("text-sm font-semibold", className)} {...props} />
+  <ToastPrimitive.Title ref={ref} className={cn("text-sm font-bold", className)} {...props} />
 ));
 ToastTitle.displayName = "ToastTitle";
 

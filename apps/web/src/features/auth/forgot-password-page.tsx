@@ -33,20 +33,23 @@ export const ForgotPasswordPage = () => {
       footer={
         <>
           Remembered it?{" "}
-          <Link to="/login" className="font-medium text-foreground hover:underline">
+          <Link
+            to="/login"
+            className="font-bold text-foreground underline decoration-2 underline-offset-2 hover:text-acid"
+          >
             Back to sign in
           </Link>
         </>
       }
     >
       {done ? (
-        <p className="text-sm text-muted-foreground">
-          If an account exists for <span className="font-medium text-foreground">{email}</span>,
-          a reset link is on the way.
-        </p>
+        <div className="rounded-sm border-2 border-ink bg-acid/15 p-4 text-sm">
+          If an account exists for <span className="font-bold">{email}</span>, a reset link is on
+          its way.
+        </div>
       ) : (
         <form className="space-y-4" onSubmit={submit}>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
@@ -56,7 +59,7 @@ export const ForgotPasswordPage = () => {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-          <Button type="submit" className="w-full" disabled={submitting}>
+          <Button type="submit" variant="acid" size="lg" className="w-full" disabled={submitting}>
             {submitting ? "Sending…" : "Send reset link"}
           </Button>
         </form>

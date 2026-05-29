@@ -1,7 +1,10 @@
 import { apiClient } from "../api-client";
-import type { GenericMessage, Report, ReportCreatePayload } from "@/types";
+import type { GenericMessage, Report, ReportCreatePayload, UserPublic } from "@/types";
 
 export const moderationApi = {
+  listBlocked() {
+    return apiClient.request<UserPublic[]>("/moderation/blocks");
+  },
   report(payload: ReportCreatePayload) {
     return apiClient.request<Report>("/moderation/reports", { method: "POST", body: payload });
   },

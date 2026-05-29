@@ -59,7 +59,7 @@ export const MessageSearch = ({ roomId }: Props) => {
               </button>
             )}
           </div>
-          <div className="max-h-[55vh] overflow-y-auto rounded-md border border-border">
+          <div className="max-h-[55vh] overflow-y-auto rounded-sm border-2 border-ink">
             {debounced.trim().length < 2 ? (
               <p className="p-6 text-center text-sm text-muted-foreground">
                 Type at least 2 characters to search.

@@ -15,7 +15,7 @@ export const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-[10rem] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "z-50 min-w-[11rem] overflow-hidden rounded-sm border-2 border-ink bg-popover p-1 text-popover-foreground shadow-brutal data-[state=open]:animate-in data-[state=closed]:animate-out",
         className,
       )}
       {...props}
@@ -31,7 +31,7 @@ export const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm font-medium outline-none transition focus:bg-acid focus:text-acid-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       inset && "pl-8",
       className,
     )}
@@ -57,7 +57,10 @@ export const DropdownMenuLabel = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("px-2 py-1.5 text-xs font-medium text-muted-foreground", className)}
+    className={cn(
+      "px-2 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wide text-muted-foreground",
+      className,
+    )}
     {...props}
   />
 );

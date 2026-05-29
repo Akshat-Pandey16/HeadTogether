@@ -63,11 +63,11 @@ export class WsSocket {
         }
         for (const fn of this.listeners) fn(msg);
       } catch {
-        // ignore malformed
+        void 0;
       }
     };
     ws.onerror = () => {
-      // close handler runs next
+      void 0;
     };
     ws.onclose = () => {
       this.stopHeartbeat();
@@ -96,7 +96,7 @@ export class WsSocket {
         try {
           ws.close();
         } catch {
-          // ignore
+          void 0;
         }
       }
     }

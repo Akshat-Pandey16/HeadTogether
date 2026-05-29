@@ -73,13 +73,13 @@ async def register_device_token(
     return DeviceTokenRead.model_validate(token)
 
 
-@router.delete("/device-tokens/{token}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/device-tokens/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def revoke_device_token(
-    token: str,
+    token_id: UUID,
     current_user: CurrentUser,
     notifications: NotificationServiceDep,
 ) -> None:
-    await notifications.revoke_token(user_id=current_user.id, token=token)
+    await notifications.revoke_token(user_id=current_user.id, token_id=token_id)
 
 
 @router.get("/device-tokens", response_model=list[DeviceTokenRead])

@@ -61,6 +61,12 @@ export type RoomMember = {
   state: MembershipState;
 };
 
+export type DirectMessage = {
+  id: string;
+  created_at: string;
+  participants: UserPublic[];
+};
+
 export type RoomEvent = {
   id: string;
   event_type: RoomEventType;

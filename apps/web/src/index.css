@@ -4,6 +4,10 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
+  --font-display: "Syne", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, "SFMono-Regular", monospace;
+
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-card: hsl(var(--card));
@@ -18,61 +22,90 @@
   --color-muted-foreground: hsl(var(--muted-foreground));
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-acid: hsl(var(--acid));
+  --color-acid-foreground: hsl(var(--acid-foreground));
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+  --color-ink: hsl(var(--ink));
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --color-play: hsl(var(--play));
+  --color-movie: hsl(var(--movie));
+  --color-travel: hsl(var(--travel));
+  --color-chat: hsl(var(--chat));
+  --color-landmark: hsl(var(--landmark));
+  --color-custom: hsl(var(--custom));
+
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
 }
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
+  --background: 44 30% 94%;
+  --foreground: 0 0% 5%;
   --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
+  --card-foreground: 0 0% 5%;
   --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
-  --primary: 240 5.9% 10%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 240 4.8% 95.9%;
-  --secondary-foreground: 240 5.9% 10%;
-  --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 46.1%;
-  --accent: 240 4.8% 95.9%;
-  --accent-foreground: 240 5.9% 10%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
-  --ring: 240 5.9% 10%;
-  --radius: 0.625rem;
+  --popover-foreground: 0 0% 5%;
+  --primary: 0 0% 7%;
+  --primary-foreground: 44 30% 96%;
+  --secondary: 44 22% 88%;
+  --secondary-foreground: 0 0% 7%;
+  --muted: 44 18% 89%;
+  --muted-foreground: 0 0% 36%;
+  --accent: 44 24% 85%;
+  --accent-foreground: 0 0% 7%;
+  --acid: 74 96% 52%;
+  --acid-foreground: 0 0% 5%;
+  --destructive: 4 86% 56%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 8%;
+  --input: 0 0% 8%;
+  --ring: 74 96% 45%;
+  --ink: 0 0% 5%;
+
+  --play: 96 70% 46%;
+  --movie: 262 84% 68%;
+  --travel: 26 96% 54%;
+  --chat: 202 90% 52%;
+  --landmark: 330 88% 62%;
+  --custom: 45 96% 52%;
 }
 
 .dark {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 240 6% 8%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 240 5.9% 10%;
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
-  --accent: 240 3.7% 15.9%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 240 4.9% 83.9%;
+  --background: 0 0% 5%;
+  --foreground: 44 24% 92%;
+  --card: 0 0% 9%;
+  --card-foreground: 44 24% 92%;
+  --popover: 0 0% 8%;
+  --popover-foreground: 44 24% 92%;
+  --primary: 44 24% 92%;
+  --primary-foreground: 0 0% 6%;
+  --secondary: 0 0% 14%;
+  --secondary-foreground: 44 24% 92%;
+  --muted: 0 0% 13%;
+  --muted-foreground: 0 0% 60%;
+  --accent: 0 0% 16%;
+  --accent-foreground: 44 24% 92%;
+  --acid: 74 96% 54%;
+  --acid-foreground: 0 0% 5%;
+  --destructive: 4 86% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 24%;
+  --input: 0 0% 24%;
+  --ring: 74 96% 54%;
+  --ink: 44 24% 92%;
+
+  --play: 96 64% 52%;
+  --movie: 262 84% 74%;
+  --travel: 26 96% 58%;
+  --chat: 202 90% 60%;
+  --landmark: 330 88% 68%;
+  --custom: 45 96% 56%;
 }
 
 @layer base {
@@ -82,13 +115,18 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01" 1, "cv01" 1;
     -webkit-font-smoothing: antialiased;
   }
   html,
   body,
   #root {
     height: 100%;
+  }
+  ::selection {
+    background-color: hsl(var(--acid));
+    color: hsl(var(--acid-foreground));
   }
 }
 
@@ -97,4 +135,89 @@
     display: none;
   }
   scrollbar-width: none;
+}
+
+@utility shadow-brutal {
+  box-shadow: 4px 4px 0 0 hsl(var(--ink));
+}
+@utility shadow-brutal-sm {
+  box-shadow: 2px 2px 0 0 hsl(var(--ink));
+}
+@utility shadow-brutal-lg {
+  box-shadow: 6px 6px 0 0 hsl(var(--ink));
+}
+@utility shadow-brutal-acid {
+  box-shadow: 4px 4px 0 0 hsl(var(--acid));
+}
+@utility border-brutal {
+  border: 2px solid hsl(var(--ink));
+}
+
+@utility press {
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease;
+  &:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 0 hsl(var(--ink));
+  }
+  &:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 0 hsl(var(--ink));
+  }
+}
+
+@utility grain {
+  background-image:
+    linear-gradient(hsl(var(--border) / 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.5) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+@utility marquee-track {
+  animation: marquee 22s linear infinite;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes radar-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ping-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.maplibregl-map {
+  font-family: var(--font-mono) !important;
+}
+.map-brutal .maplibregl-canvas {
+  filter: grayscale(1) contrast(1.1);
+}
+.dark .map-brutal .maplibregl-canvas {
+  filter: grayscale(1) invert(0.92) hue-rotate(180deg) contrast(0.95) brightness(0.95);
+}
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-logo {
+  opacity: 0.5;
+  font-size: 9px;
 }

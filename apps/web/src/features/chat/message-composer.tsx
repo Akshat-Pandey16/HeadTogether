@@ -64,17 +64,17 @@ export const MessageComposer = ({
   };
 
   return (
-    <div className="border-t border-border bg-background p-3">
+    <div className="border-t-2 border-ink bg-card p-3">
       {replyTo && (
-        <div className="mb-2 flex items-start justify-between gap-3 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs">
-          <div className="min-w-0">
-            <p className="font-medium">
+        <div className="mb-2 flex items-start justify-between gap-3 rounded-sm border-2 border-ink bg-secondary px-3 py-2 text-xs">
+          <div className="min-w-0 border-l-2 border-acid pl-2">
+            <p className="font-bold">
               Replying to {replyTo.sender.first_name} {replyTo.sender.last_name}
             </p>
             <p className="line-clamp-1 text-muted-foreground">{replyTo.body}</p>
           </div>
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClearReply}>
-            <X className="h-3 w-3" />
+          <Button variant="ghost" size="icon-sm" onClick={onClearReply}>
+            <X className="h-3.5 w-3.5" strokeWidth={2.5} />
           </Button>
         </div>
       )}
@@ -88,13 +88,13 @@ export const MessageComposer = ({
               submit();
             }
           }}
-          placeholder="Type a message…"
+          placeholder="Type a message…  (Enter to send, Shift+Enter for newline)"
           className="min-h-[44px] resize-none"
           rows={1}
           maxLength={4000}
         />
-        <Button onClick={submit} disabled={!value.trim() || sending} size="icon">
-          <Send className="h-4 w-4" />
+        <Button onClick={submit} variant="acid" disabled={!value.trim() || sending} size="icon">
+          <Send className="h-4 w-4" strokeWidth={2.5} />
         </Button>
       </div>
     </div>

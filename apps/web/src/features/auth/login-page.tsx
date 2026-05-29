@@ -35,7 +35,10 @@ export const LoginPage = () => {
       footer={
         <>
           New here?{" "}
-          <Link to="/register" className="font-medium text-foreground hover:underline">
+          <Link
+            to="/register"
+            className="font-bold text-foreground underline decoration-2 underline-offset-2 hover:text-acid"
+          >
             Create an account
           </Link>
         </>
@@ -72,7 +75,7 @@ export const LoginPage = () => {
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-        <Button type="submit" className="w-full" disabled={submitting}>
+        <Button type="submit" variant="acid" size="lg" className="w-full" disabled={submitting}>
           {submitting ? "Signing in…" : "Sign in"}
         </Button>
       </form>
