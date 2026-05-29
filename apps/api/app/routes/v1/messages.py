@@ -109,23 +109,24 @@ async def add_reaction(
     current_user: CurrentUser,
     messages: MessageServiceDep,
 ) -> GenericMessage:
-    await messages.add_reaction(
+    _, created = await messages.add_reaction(
         room_id=room_id,
         message_id=message_id,
         actor_id=current_user.id,
         payload=payload,
     )
-    await get_manager().broadcast(
-        room_id,
-        {
-            "type": WsEvent.REACTION_ADDED.value,
-            "data": {
-                "message_id": str(message_id),
-                "user_id": str(current_user.id),
-                "emoji": payload.emoji,
+    if created:
+        await get_manager().broadcast(
+            room_id,
+            {
+                "type": WsEvent.REACTION_ADDED.value,
+                "data": {
+                    "message_id": str(message_id),
+                    "user_id": str(current_user.id),
+                    "emoji": payload.emoji,
+                },
             },
-        },
-    )
+        )
     return GenericMessage(message="reaction_added")
 
 

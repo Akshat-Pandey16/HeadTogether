@@ -214,14 +214,14 @@ class MessageService:
         message_id: UUID,
         actor_id: UUID,
         payload: ReactionCreate,
-    ) -> MessageReaction:
+    ) -> tuple[MessageReaction, bool]:
         message = await self._get_message(room_id, message_id)
         if message.deleted_at is not None:
             raise ConflictError("Cannot react to a deleted message", code="message_deleted")
         await self._ensure_member(room_id, actor_id)
         existing = await self.reactions.get_reaction(message.id, actor_id, payload.emoji)
         if existing is not None:
-            return existing
+            return existing, False
         reaction = MessageReaction(
             message_id=message.id,
             user_id=actor_id,
@@ -235,7 +235,7 @@ class MessageService:
             await self.session.rollback()
             duplicate = await self.reactions.get_reaction(message.id, actor_id, payload.emoji)
             if duplicate is not None:
-                return duplicate
+                return duplicate, False
             raise
         if message.sender_id != actor_id:
             await self.notify_service.notify(
@@ -246,7 +246,7 @@ class MessageService:
                 message_id=message.id,
                 payload={"emoji": payload.emoji},
             )
-        return reaction
+        return reaction, True
 
     async def remove_reaction(
         self,
