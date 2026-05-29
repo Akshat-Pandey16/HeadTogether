@@ -199,6 +199,8 @@ const updateReactions = (
     if (!add) return current;
     return [...current, { emoji, count: 1, reacted_by_me: isMe }];
   }
+  if (add && isMe && existing.reacted_by_me) return current;
+  if (!add && isMe && !existing.reacted_by_me) return current;
   const nextCount = existing.count + (add ? 1 : -1);
   if (nextCount <= 0) return current.filter((r) => r.emoji !== emoji);
   return current.map((r) =>

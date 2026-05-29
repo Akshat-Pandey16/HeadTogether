@@ -158,7 +158,7 @@ export const MessageItem = ({
       </div>
 
       {!message.deleted_at && (
-        <div className="absolute right-2 top-1 flex items-center gap-0.5 rounded-sm border-2 border-ink bg-card opacity-0 shadow-brutal-sm transition group-hover:opacity-100">
+        <div className="absolute right-2 top-1 flex items-center gap-0.5 rounded-sm border-2 border-ink bg-card opacity-100 shadow-brutal-sm transition md:opacity-0 md:group-hover:opacity-100">
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon-sm" className="border-0">
@@ -166,15 +166,23 @@ export const MessageItem = ({
               </Button>
             </PopoverTrigger>
             <PopoverContent className="flex w-auto gap-1 p-1.5">
-              {QUICK_REACTIONS.map((e) => (
-                <button
-                  key={e}
-                  onClick={() => onAddReaction(message.id, e)}
-                  className="rounded-sm p-1 text-lg transition hover:bg-secondary"
-                >
-                  {e}
-                </button>
-              ))}
+              {QUICK_REACTIONS.map((e) => {
+                const mine = message.reactions.find((r) => r.emoji === e)?.reacted_by_me;
+                return (
+                  <button
+                    key={e}
+                    onClick={() =>
+                      mine ? onRemoveReaction(message.id, e) : onAddReaction(message.id, e)
+                    }
+                    className={cn(
+                      "rounded-sm p-1 text-lg transition hover:bg-secondary",
+                      mine && "bg-acid",
+                    )}
+                  >
+                    {e}
+                  </button>
+                );
+              })}
             </PopoverContent>
           </Popover>
           <Button

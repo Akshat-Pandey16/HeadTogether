@@ -12,6 +12,7 @@ from app.core.logging import get_logger
 from app.db.session import SessionFactory
 from app.models.auth import RefreshToken
 from app.models.enums import RoomStatus
+from app.models.notifications import Notification
 from app.models.room import Room
 from app.utils.time import utc_now
 
@@ -67,6 +68,22 @@ async def purge_revoked_refresh_tokens(session: AsyncSession) -> int:
     return deleted
 
 
+async def purge_old_notifications(session: AsyncSession) -> int:
+    now = utc_now()
+    read_cutoff = now - timedelta(days=settings.notification_read_retention_days)
+    hard_cutoff = now - timedelta(days=settings.notification_max_retention_days)
+    stmt = delete(Notification).where(
+        (Notification.read_at.is_not(None) & (Notification.read_at < read_cutoff))
+        | (Notification.created_at < hard_cutoff)
+    )
+    result = await session.execute(stmt)
+    deleted = int(result.rowcount or 0)
+    if deleted:
+        await session.commit()
+        log.info("jobs.purge_old_notifications", deleted=deleted)
+    return deleted
+
+
 def _job(
     job_id: str, coro_fn: Callable[[AsyncSession], Awaitable[int]]
 ) -> Callable[[], Awaitable[None]]:
@@ -103,6 +120,13 @@ def build_scheduler() -> AsyncIOScheduler:
         "interval",
         hours=6,
         id="purge_revoked_refresh_tokens",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        _job("purge_old_notifications", purge_old_notifications),
+        "interval",
+        hours=12,
+        id="purge_old_notifications",
         replace_existing=True,
     )
     return scheduler

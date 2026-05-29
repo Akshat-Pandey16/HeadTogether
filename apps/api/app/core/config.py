@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     ws_max_connections_per_user: int = Field(default=5, ge=1)
     message_edit_window_minutes: int = Field(default=15, ge=1)
 
+    notification_read_retention_days: int = Field(default=30, ge=1)
+    notification_max_retention_days: int = Field(default=90, ge=1)
+
     public_app_url: str = "http://localhost:5173"
 
     cors_allow_origins: Annotated[list[str], NoDecode] = Field(
