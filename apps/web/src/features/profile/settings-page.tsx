@@ -17,6 +17,7 @@ import { toast } from "@/components/ui/toaster";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { PageHeader, PageTitle } from "@/components/layout/page-header";
+import { useConfirm } from "@/providers/confirm-provider";
 import { authApi, moderationApi, notificationsApi, usersApi } from "@/lib/api";
 import { errorMessage } from "@/lib/api-error";
 import { relativeTime } from "@/lib/format";
@@ -63,6 +64,7 @@ export const SettingsPage = () => {
   const { logout } = useAuthActions();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const confirm = useConfirm();
 
   const tagsQuery = useQuery({ queryKey: ["users", "me", "tags"], queryFn: () => usersApi.myTags() });
   const tokens = useQuery({ queryKey: ["device-tokens"], queryFn: () => notificationsApi.listTokens() });
@@ -368,9 +370,13 @@ export const SettingsPage = () => {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => {
-                  if (window.confirm("Sign out of every device and revoke all sessions?"))
-                    logoutAll.mutate();
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: "Sign out everywhere?",
+                    description: "All devices and sessions will be signed out.",
+                    confirmText: "Sign out all",
+                  });
+                  if (ok) logoutAll.mutate();
                 }}
                 disabled={logoutAll.isPending}
               >
@@ -378,9 +384,14 @@ export const SettingsPage = () => {
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => {
-                  if (window.confirm("Delete your account? You'll lose your rooms, DMs and history."))
-                    deleteAccount.mutate();
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: "Delete your account?",
+                    description: "You'll lose your rooms, DMs and history. This can't be undone.",
+                    confirmText: "Delete account",
+                    destructive: true,
+                  });
+                  if (ok) deleteAccount.mutate();
                 }}
                 disabled={deleteAccount.isPending}
               >

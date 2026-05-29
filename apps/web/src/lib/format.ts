@@ -1,8 +1,14 @@
 import { formatDistanceToNowStrict, isToday, isYesterday } from "date-fns";
 
+export const parseDate = (value: string | Date): Date => {
+  if (value instanceof Date) return value;
+  const hasTz = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
+  return new Date(hasTz ? value : `${value.replace(" ", "T")}Z`);
+};
+
 export const relativeTime = (value: string | Date | null | undefined): string => {
   if (!value) return "";
-  const date = typeof value === "string" ? new Date(value) : value;
+  const date = parseDate(value);
   if (Number.isNaN(date.getTime())) return "";
   return formatDistanceToNowStrict(date, { addSuffix: true })
     .replace(" seconds", "s")
@@ -20,12 +26,11 @@ export const relativeTime = (value: string | Date | null | undefined): string =>
 };
 
 export const clockTime = (value: string | Date): string => {
-  const date = typeof value === "string" ? new Date(value) : value;
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return parseDate(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
 export const dayLabel = (value: string | Date): string => {
-  const date = typeof value === "string" ? new Date(value) : value;
+  const date = parseDate(value);
   if (isToday(date)) return "Today";
   if (isYesterday(date)) return "Yesterday";
   return date.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });

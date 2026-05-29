@@ -1,5 +1,5 @@
-import { formatDistanceToNow } from "date-fns";
 import { History } from "lucide-react";
+import { relativeTime } from "@/lib/format";
 import { useRoomEvents } from "./room-queries";
 import { RoomEventType, type RoomEvent } from "@/types";
 
@@ -63,7 +63,7 @@ export const RoomEventsPanel = ({ roomId }: Props) => {
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-bold">{describe(e)}</span>
             <span className="shrink-0 font-mono text-[10px] uppercase text-muted-foreground">
-              {formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
+              {relativeTime(e.created_at)}
             </span>
           </div>
         </li>

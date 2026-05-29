@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { formatDistanceToNow } from "date-fns";
 import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { relativeTime } from "@/lib/format";
 import { useDebounce } from "@/hooks/use-debounce";
 import { messagesApi } from "@/lib/api";
 
@@ -79,7 +79,7 @@ export const MessageSearch = ({ roomId }: Props) => {
                           {m.sender.first_name} {m.sender.last_name}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(m.created_at), { addSuffix: true })}
+                          {relativeTime(m.created_at)}
                         </span>
                       </p>
                       <p className="line-clamp-3 whitespace-pre-wrap text-sm">{m.body}</p>

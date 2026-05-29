@@ -35,10 +35,12 @@ export const PageTitle = ({
     >
       {icon}
     </span>
-    <div className="min-w-0 leading-none">
-      <h1 className="truncate font-display text-xl font-extrabold tracking-tight">{title}</h1>
+    <div className="min-w-0">
+      <h1 className="truncate font-display text-xl font-extrabold leading-tight tracking-tight">
+        {title}
+      </h1>
       {subtitle && (
-        <p className="mt-1 hidden truncate font-mono text-[11px] text-muted-foreground sm:block">
+        <p className="hidden truncate font-mono text-[11px] leading-tight text-muted-foreground sm:block">
           {subtitle}
         </p>
       )}

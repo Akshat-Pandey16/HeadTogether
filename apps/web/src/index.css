@@ -207,6 +207,11 @@
   }
 }
 
+.has-custom-cursor,
+.has-custom-cursor * {
+  cursor: none !important;
+}
+
 .maplibregl-map {
   font-family: var(--font-mono) !important;
 }

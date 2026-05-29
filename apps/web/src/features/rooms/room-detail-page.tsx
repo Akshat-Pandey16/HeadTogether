@@ -26,6 +26,7 @@ import { UserAvatar } from "@/components/shared/user-avatar";
 import { LoadingPage } from "@/components/shared/loading";
 import { RoomMap } from "@/components/map/room-map-lazy";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { useConfirm } from "@/providers/confirm-provider";
 import { errorMessage } from "@/lib/api-error";
 import { formatCoord } from "@/lib/format";
 import { purposeMeta } from "@/lib/purpose";
@@ -72,6 +73,7 @@ export const RoomDetailPage = () => {
   const { roomId = "" } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const confirm = useConfirm();
   const room = useRoom(roomId);
   const { coords, request } = useGeolocation(false);
   const joinRoom = useJoinRoom();
@@ -334,7 +336,13 @@ export const RoomDetailPage = () => {
                     <Button
                       variant="destructive"
                       onClick={async () => {
-                        if (!window.confirm("Delete room? Restorable within 7 days.")) return;
+                        const ok = await confirm({
+                          title: "Delete this room?",
+                          description: "It can be restored within 7 days, then it's gone for good.",
+                          confirmText: "Delete room",
+                          destructive: true,
+                        });
+                        if (!ok) return;
                         await remove.mutateAsync(r.id);
                         navigate("/", { replace: true });
                       }}

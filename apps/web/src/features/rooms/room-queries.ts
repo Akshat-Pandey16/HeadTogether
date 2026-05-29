@@ -29,16 +29,29 @@ export const useJoinedRooms = (include_archived = false) =>
   useQuery({
     queryKey: roomKeys.joined({ include_archived }),
     queryFn: () => roomsApi.listJoined({ include_archived }),
+    refetchOnWindowFocus: true,
   });
 
 export const useOwnedRooms = () =>
-  useQuery({ queryKey: roomKeys.owned(), queryFn: () => roomsApi.listOwned() });
+  useQuery({
+    queryKey: roomKeys.owned(),
+    queryFn: () => roomsApi.listOwned(),
+    refetchOnWindowFocus: true,
+  });
 
 export const useSavedRooms = () =>
-  useQuery({ queryKey: roomKeys.saved(), queryFn: () => roomsApi.listSaved() });
+  useQuery({
+    queryKey: roomKeys.saved(),
+    queryFn: () => roomsApi.listSaved(),
+    refetchOnWindowFocus: true,
+  });
 
 export const usePastRooms = () =>
-  useQuery({ queryKey: roomKeys.past(), queryFn: () => roomsApi.listPast() });
+  useQuery({
+    queryKey: roomKeys.past(),
+    queryFn: () => roomsApi.listPast(),
+    refetchOnWindowFocus: true,
+  });
 
 export const useSearchRooms = (q: string, purpose?: RoomPurpose, sort?: TextSort) =>
   useQuery({
@@ -73,6 +86,9 @@ export const useNearbyRooms = (args: NearbyArgs) =>
         max_distance_km: args.max_distance_km,
       }),
     enabled: args.latitude !== undefined && args.longitude !== undefined,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 
 export const useRoom = (roomId: string | undefined) =>

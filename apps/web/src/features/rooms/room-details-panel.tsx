@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toaster";
+import { useConfirm } from "@/providers/confirm-provider";
 import { errorMessage } from "@/lib/api-error";
 import type { RoomDetailItem } from "@/types";
 import {
@@ -21,6 +22,7 @@ type Props = {
 };
 
 export const RoomDetailsPanel = ({ roomId, details, canManage }: Props) => {
+  const confirm = useConfirm();
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [heading, setHeading] = useState("");
@@ -63,7 +65,13 @@ export const RoomDetailsPanel = ({ roomId, details, canManage }: Props) => {
   };
 
   const handleDelete = async (detail: RoomDetailItem) => {
-    if (!window.confirm(`Remove section "${detail.heading}"?`)) return;
+    const ok = await confirm({
+      title: "Remove section?",
+      description: `"${detail.heading}" will be removed from this room.`,
+      confirmText: "Remove",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await remove.mutateAsync(detail.id);
       toast({ title: "Section removed" });

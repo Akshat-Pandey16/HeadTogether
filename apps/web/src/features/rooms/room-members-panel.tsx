@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { toast } from "@/components/ui/toaster";
+import { useConfirm } from "@/providers/confirm-provider";
 import { errorMessage } from "@/lib/api-error";
 import { RoomRole, type MembershipState } from "@/types";
 import {
@@ -31,6 +32,7 @@ const stateLabel: Record<MembershipState, string> = {
 };
 
 export const RoomMembersPanel = ({ roomId, isOwner, role }: Props) => {
+  const confirm = useConfirm();
   const members = useRoomMembers(roomId);
   const promote = usePromoteMember(roomId);
   const demote = useDemoteMember(roomId);
@@ -102,7 +104,13 @@ export const RoomMembersPanel = ({ roomId, isOwner, role }: Props) => {
                 )}
                 <DropdownMenuItem
                   onClick={async () => {
-                    if (!window.confirm(`Remove ${m.user.first_name} from this room?`)) return;
+                    const ok = await confirm({
+                      title: `Remove ${m.user.first_name}?`,
+                      description: "They'll be removed from this room.",
+                      confirmText: "Remove",
+                      destructive: true,
+                    });
+                    if (!ok) return;
                     try {
                       await kick.mutateAsync(m.user.id);
                       toast({ title: "Member removed" });

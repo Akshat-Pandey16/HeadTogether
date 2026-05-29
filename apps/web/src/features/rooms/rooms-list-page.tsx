@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { Compass, Crosshair, Plus, Search, SlidersHorizontal, X } from "lucide-react";
+import { Compass, Crosshair, Plus, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RoomMap } from "@/components/map/room-map-lazy";
 import { PageHeader } from "@/components/layout/page-header";
@@ -103,6 +103,18 @@ export const RoomsListPage = () => {
   const showSearch = debouncedSearch.trim().length > 0;
   const nearbyRooms = useMemo(() => nearby.data?.items ?? [], [nearby.data]);
 
+  const activeQuery = showSearch
+    ? searched
+    : tab === "nearby"
+      ? nearby
+      : tab === "joined"
+        ? joined
+        : tab === "owned"
+          ? owned
+          : tab === "saved"
+            ? saved
+            : past;
+
   const lists: Record<Exclude<Tab, "nearby">, { items?: RoomSummary[]; loading: boolean }> = {
     joined: { items: joined.data?.items, loading: joined.isLoading },
     owned: { items: owned.data?.items, loading: owned.isLoading },
@@ -136,6 +148,18 @@ export const RoomsListPage = () => {
             </button>
           )}
         </div>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => activeQuery.refetch()}
+          aria-label="Refresh"
+          title="Refresh"
+        >
+          <RefreshCw
+            className={cn("h-4 w-4", activeQuery.isFetching && "animate-spin")}
+            strokeWidth={2.5}
+          />
+        </Button>
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" size="icon" aria-label="Filters">

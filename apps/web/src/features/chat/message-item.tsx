@@ -11,6 +11,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { useConfirm } from "@/providers/confirm-provider";
 import { clockTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { MessageType, type Message } from "@/types";
@@ -46,6 +47,7 @@ export const MessageItem = ({
   onRemoveReaction,
   parent,
 }: Props) => {
+  const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.body);
   const canEdit = isOwnMessage && !message.deleted_at;
@@ -221,8 +223,16 @@ export const MessageItem = ({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
-                      onClick={() => {
-                        if (window.confirm("Delete this message?")) onDelete(message.id);
+                      onClick={async () => {
+                        if (
+                          await confirm({
+                            title: "Delete message?",
+                            description: "This message will be removed for everyone.",
+                            confirmText: "Delete",
+                            destructive: true,
+                          })
+                        )
+                          onDelete(message.id);
                       }}
                     >
                       <Trash2 className="h-4 w-4" /> Delete
