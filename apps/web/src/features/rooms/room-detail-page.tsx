@@ -162,68 +162,86 @@ export const RoomDetailPage = () => {
       >
         {r.cover_photo_url ? (
           <>
-            <img src={r.cover_photo_url} alt={r.name} className="h-44 w-full object-cover md:h-56" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+            <img src={r.cover_photo_url} alt={r.name} className="h-44 w-full object-cover md:h-60" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/10" />
           </>
         ) : (
-          <div className="grain h-44 w-full md:h-56" />
+          <div className="grain relative h-44 w-full overflow-hidden md:h-60">
+            <Icon
+              className="absolute -bottom-4 right-6 h-32 w-32 text-black/15 md:h-44 md:w-44"
+              strokeWidth={1.5}
+            />
+          </div>
         )}
 
         <Link
           to="/"
-          className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-sm border-2 border-ink bg-card text-foreground transition hover:bg-secondary"
+          className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-sm border-2 border-ink bg-card text-foreground transition-colors hover:bg-secondary"
         >
           <ArrowLeft className="h-4 w-4" strokeWidth={2.5} />
         </Link>
 
-        <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-3 p-4 md:p-6">
-          <div className={r.cover_photo_url ? "text-white" : "text-black"}>
-            <div className="mb-2 flex flex-wrap items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded-sm border-2 border-ink bg-card px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-foreground">
-                <Icon className="h-3 w-3" strokeWidth={2.5} />
-                {r.purpose === "custom" && r.custom_purpose ? r.custom_purpose : meta.label}
-              </span>
-              <span className="rounded-sm border-2 border-ink bg-card px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-foreground">
-                {r.visibility}
-              </span>
-              {r.status !== "active" && (
-                <span className="rounded-sm border-2 border-ink bg-destructive px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-destructive-foreground">
-                  {r.status}
-                </span>
-              )}
-            </div>
-            <h1 className="font-display text-3xl font-extrabold leading-none tracking-tight md:text-4xl">
-              {r.name}
-            </h1>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {r.is_member ? (
-              <>
-                <Button variant="acid" asChild>
-                  <Link to={`/rooms/${r.id}/chat`}>
-                    <MessageSquare className="h-4 w-4" strokeWidth={2.5} /> Open chat
-                  </Link>
-                </Button>
-                {!isOwner && (
-                  <Button variant="outline" onClick={handleLeave} disabled={leaveRoom.isPending}>
-                    <LogOut className="h-4 w-4" strokeWidth={2.5} /> Leave
-                  </Button>
-                )}
-              </>
-            ) : (
-              <Button variant="acid" onClick={handleJoin} disabled={joinRoom.isPending}>
-                {joinRoom.isPending ? "Joining…" : "Join room"}
+        <div className="absolute right-4 top-4 flex items-center gap-2">
+          {r.is_member ? (
+            <>
+              <Button variant="acid" asChild>
+                <Link to={`/rooms/${r.id}/chat`}>
+                  <MessageSquare className="h-4 w-4" strokeWidth={2.5} />
+                  <span className="hidden sm:inline">Open chat</span>
+                </Link>
               </Button>
-            )}
-            <Button variant="outline" size="icon" onClick={toggleSave} disabled={saveRoom.isPending}>
-              {r.is_saved ? (
-                <BookmarkCheck className="h-4 w-4" strokeWidth={2.5} />
-              ) : (
-                <Bookmark className="h-4 w-4" strokeWidth={2.5} />
+              {!isOwner && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleLeave}
+                  disabled={leaveRoom.isPending}
+                  title="Leave room"
+                >
+                  <LogOut className="h-4 w-4" strokeWidth={2.5} />
+                </Button>
               )}
+            </>
+          ) : (
+            <Button variant="acid" onClick={handleJoin} disabled={joinRoom.isPending}>
+              {joinRoom.isPending ? "Joining…" : "Join"}
             </Button>
+          )}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleSave}
+            disabled={saveRoom.isPending}
+            title={r.is_saved ? "Saved" : "Save"}
+          >
+            {r.is_saved ? (
+              <BookmarkCheck className="h-4 w-4" strokeWidth={2.5} />
+            ) : (
+              <Bookmark className="h-4 w-4" strokeWidth={2.5} />
+            )}
+          </Button>
+        </div>
+
+        <div
+          className={`absolute inset-x-0 bottom-0 p-4 md:p-6 ${r.cover_photo_url ? "text-white" : "text-black"}`}
+        >
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-sm border-2 border-ink bg-card px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-foreground">
+              <Icon className="h-3 w-3" strokeWidth={2.5} />
+              {r.purpose === "custom" && r.custom_purpose ? r.custom_purpose : meta.label}
+            </span>
+            <span className="rounded-sm border-2 border-ink bg-card px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-foreground">
+              {r.visibility}
+            </span>
+            {r.status !== "active" && (
+              <span className="rounded-sm border-2 border-ink bg-destructive px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-destructive-foreground">
+                {r.status}
+              </span>
+            )}
           </div>
+          <h1 className="font-display text-3xl font-extrabold leading-none tracking-tight md:text-5xl">
+            {r.name}
+          </h1>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { motion } from "motion/react";
 import { Bookmark, Navigation, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -7,18 +8,32 @@ import { purposeMeta } from "@/lib/purpose";
 import { cn } from "@/lib/utils";
 import type { NearbyRoom, RoomSummary } from "@/types";
 
-type Props = { room: RoomSummary | NearbyRoom };
+const MotionLink = motion.create(Link);
 
-export const RoomCard = ({ room }: Props) => {
+type Props = {
+  room: RoomSummary | NearbyRoom;
+  selected?: boolean;
+  onHover?: () => void;
+};
+
+export const RoomCard = ({ room, selected, onHover }: Props) => {
   const distance = "distance_km" in room ? room.distance_km : null;
   const meta = purposeMeta(room.purpose);
   const Icon = meta.icon;
   const full = room.member_count >= room.max_members;
 
   return (
-    <Link
+    <MotionLink
       to={`/rooms/${room.id}`}
-      className="group flex h-full flex-col overflow-hidden rounded-sm border-2 border-ink bg-card transition-[transform,box-shadow] duration-100 hover:-translate-x-1 hover:-translate-y-1 hover:shadow-brutal-lg"
+      onMouseEnter={onHover}
+      variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
+      whileHover={{ y: -4 }}
+      whileTap={{ y: -1 }}
+      transition={{ type: "spring", stiffness: 420, damping: 30 }}
+      className={cn(
+        "flex h-full flex-col overflow-hidden rounded-sm border-2 bg-card transition-colors",
+        selected ? "border-acid" : "border-ink hover:border-acid",
+      )}
     >
       <div className="relative h-24 shrink-0 overflow-hidden border-b-2 border-ink">
         {room.cover_photo_url ? (
@@ -26,13 +41,10 @@ export const RoomCard = ({ room }: Props) => {
             src={room.cover_photo_url}
             alt={room.name}
             loading="lazy"
-            className="h-full w-full object-cover transition group-hover:scale-105"
+            className="h-full w-full object-cover"
           />
         ) : (
-          <div
-            className="grain h-full w-full"
-            style={{ backgroundColor: meta.color, opacity: 0.9 }}
-          />
+          <div className="grain h-full w-full" style={{ backgroundColor: meta.color }} />
         )}
         <span
           className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-sm border-2 border-ink px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-black"
@@ -58,9 +70,7 @@ export const RoomCard = ({ room }: Props) => {
 
       <div className="flex flex-1 flex-col gap-2 p-3">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="line-clamp-2 font-display text-base font-bold leading-tight">
-            {room.name}
-          </h3>
+          <h3 className="line-clamp-2 font-display text-base font-bold leading-tight">{room.name}</h3>
           {room.is_owner && <Badge variant="acid">Owner</Badge>}
           {!room.is_owner && room.role === "moderator" && <Badge>Mod</Badge>}
         </div>
@@ -97,7 +107,7 @@ export const RoomCard = ({ room }: Props) => {
           </span>
         </div>
       </div>
-    </Link>
+    </MotionLink>
   );
 };
 

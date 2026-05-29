@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { motion } from "motion/react";
 import { ArrowLeft, Loader2, Pin, Radio, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
@@ -116,7 +117,7 @@ export const ChatPage = () => {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b-2 border-ink bg-card px-3 py-2.5">
+      <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b-2 border-ink bg-card px-4">
         <div className="flex min-w-0 items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => navigate(`/rooms/${roomId}`)}>
             <ArrowLeft className="h-4 w-4" strokeWidth={2.5} />
@@ -155,8 +156,13 @@ export const ChatPage = () => {
             ) : (
               <div className="space-y-0.5">
                 {messages.data?.items.map((m) => (
-                  <MessageItem
+                  <motion.div
                     key={m.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.14, ease: "easeOut" }}
+                  >
+                  <MessageItem
                     message={m}
                     isOwnMessage={m.sender.id === user?.id}
                     isModerator={!!isModerator}
@@ -184,6 +190,7 @@ export const ChatPage = () => {
                       removeReaction.mutate({ messageId, emoji })
                     }
                   />
+                  </motion.div>
                 ))}
               </div>
             )}

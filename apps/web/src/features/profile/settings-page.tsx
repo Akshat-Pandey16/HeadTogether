@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/toaster";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { PageHeader, PageTitle } from "@/components/layout/page-header";
 import { authApi, moderationApi, notificationsApi, usersApi } from "@/lib/api";
 import { errorMessage } from "@/lib/api-error";
 import { relativeTime } from "@/lib/format";
@@ -174,15 +176,16 @@ export const SettingsPage = () => {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b-2 border-ink bg-card px-4 py-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-sm border-2 border-ink bg-secondary">
-          <SettingsIcon className="h-5 w-5" strokeWidth={2.5} />
-        </span>
-        <div>
-          <h1 className="font-display text-2xl font-extrabold tracking-tight">Settings</h1>
-          <p className="font-mono text-[11px] text-muted-foreground">profile · account · privacy</p>
+      <PageHeader>
+        <PageTitle
+          icon={<SettingsIcon className="h-5 w-5" strokeWidth={2.5} />}
+          title="Settings"
+          subtitle="profile · account · privacy"
+        />
+        <div className="ml-auto">
+          <ThemeToggle />
         </div>
-      </header>
+      </PageHeader>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <div className="grid items-start gap-4 lg:grid-cols-2">

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LoadingPage } from "@/components/shared/loading";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { PageHeader } from "@/components/layout/page-header";
 import { toast } from "@/components/ui/toaster";
 import { dmsApi, moderationApi, usersApi } from "@/lib/api";
 import { errorMessage } from "@/lib/api-error";
@@ -65,59 +66,72 @@ export const ProfilePage = () => {
   const blockPending = block.isPending || unblock.isPending;
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="relative border-b-2 border-ink bg-acid">
-        <div className="grain h-28 w-full md:h-36" />
-        <Button
-          variant="outline"
-          size="icon"
-          className="absolute left-4 top-4"
-          onClick={() => navigate(-1)}
-        >
+    <div className="flex h-full flex-col">
+      <PageHeader>
+        <Button variant="outline" size="icon" onClick={() => navigate(-1)} title="Back">
           <ArrowLeft className="h-4 w-4" strokeWidth={2.5} />
         </Button>
-      </div>
+        <h1 className="truncate font-display text-xl font-extrabold tracking-tight">
+          {isMe ? "Your profile" : `${u.first_name} ${u.last_name}`}
+        </h1>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {isMe ? (
+            <Button variant="outline" onClick={() => navigate("/settings")}>
+              <UserPen className="h-4 w-4" strokeWidth={2.5} />
+              <span className="hidden sm:inline">Edit</span>
+            </Button>
+          ) : (
+            <>
+              <Button variant="acid" onClick={() => startDm.mutate()} disabled={startDm.isPending}>
+                <MessageCircle className="h-4 w-4" strokeWidth={2.5} />
+                <span className="hidden sm:inline">Message</span>
+              </Button>
+              {isBlocked ? (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => unblock.mutate()}
+                  disabled={blockPending}
+                  title="Unblock"
+                >
+                  <ShieldOff className="h-4 w-4" strokeWidth={2.5} />
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => block.mutate()}
+                  disabled={blockPending}
+                  title="Block"
+                >
+                  <Shield className="h-4 w-4" strokeWidth={2.5} />
+                </Button>
+              )}
+              <ReportDialog targetType={ReportTarget.USER} targetId={userId} />
+            </>
+          )}
+        </div>
+      </PageHeader>
 
-      <div className="px-4 md:px-8">
-        <div className="-mt-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex items-end gap-4">
-            <UserAvatar user={u} className="h-24 w-24 shadow-brutal" />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="border-b-2 border-ink bg-acid">
+          <div className="grain h-20 w-full md:h-28" />
+        </div>
+
+        <div className="px-4 md:px-8">
+          <div className="-mt-10 flex items-end gap-4">
+            <UserAvatar user={u} className="h-24 w-24" />
             <div className="pb-1">
-              <h1 className="font-display text-3xl font-extrabold leading-none tracking-tight">
+              <h2 className="font-display text-2xl font-extrabold leading-none tracking-tight">
                 {u.first_name} {u.last_name}
-              </h1>
+              </h2>
               <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
                 {u.gender.replace(/_/g, " ")} · {u.age}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 pb-1">
-            {isMe ? (
-              <Button variant="outline" onClick={() => navigate("/settings")}>
-                <UserPen className="h-4 w-4" strokeWidth={2.5} /> Edit profile
-              </Button>
-            ) : (
-              <>
-                <Button variant="acid" onClick={() => startDm.mutate()} disabled={startDm.isPending}>
-                  <MessageCircle className="h-4 w-4" strokeWidth={2.5} /> Message
-                </Button>
-                {isBlocked ? (
-                  <Button variant="outline" onClick={() => unblock.mutate()} disabled={blockPending}>
-                    <ShieldOff className="h-4 w-4" strokeWidth={2.5} /> Unblock
-                  </Button>
-                ) : (
-                  <Button variant="outline" onClick={() => block.mutate()} disabled={blockPending}>
-                    <Shield className="h-4 w-4" strokeWidth={2.5} /> Block
-                  </Button>
-                )}
-                <ReportDialog targetType={ReportTarget.USER} targetId={userId} />
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="grid gap-4 py-6 lg:grid-cols-[1fr_320px]">
+          <div className="grid gap-4 py-6 lg:grid-cols-[1fr_320px]">
           <div className="space-y-4">
             <section className="rounded-sm border-2 border-ink bg-card p-4">
               <p className="font-mono text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -156,6 +170,7 @@ export const ProfilePage = () => {
               </p>
             </aside>
           )}
+          </div>
         </div>
       </div>
     </div>

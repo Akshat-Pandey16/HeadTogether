@@ -16,8 +16,11 @@ import {
   UserMinus,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader, PageTitle } from "@/components/layout/page-header";
+import { fadeUp, staggerContainer } from "@/components/shared/motion";
 import { relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { NotificationType, type Notification } from "@/types";
@@ -64,19 +67,13 @@ export const NotificationsPage = () => {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between gap-3 border-b-2 border-ink bg-card px-4 py-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-sm border-2 border-ink bg-acid text-acid-foreground">
-            <Bell className="h-5 w-5" strokeWidth={2.5} />
-          </span>
-          <div>
-            <h1 className="font-display text-2xl font-extrabold tracking-tight">Alerts</h1>
-            <p className="font-mono text-[11px] text-muted-foreground">
-              mentions · replies · reactions · room activity
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader>
+        <PageTitle
+          icon={<Bell className="h-5 w-5" strokeWidth={2.5} />}
+          title="Alerts"
+          subtitle="mentions · replies · reactions · room activity"
+        />
+        <div className="ml-auto flex items-center gap-2">
           <div className="flex rounded-sm border-2 border-ink">
             {(["all", "unread"] as const).map((v, i) => (
               <button
@@ -99,7 +96,7 @@ export const NotificationsPage = () => {
             <span className="hidden sm:inline">Mark all</span>
           </Button>
         </div>
-      </header>
+      </PageHeader>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {notifications.isLoading ? (
@@ -113,7 +110,12 @@ export const NotificationsPage = () => {
             description={unreadOnly ? "No unread alerts." : "Nothing here yet."}
           />
         ) : (
-          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 xl:grid-cols-3">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 gap-2 lg:grid-cols-2 xl:grid-cols-3"
+          >
             {notifications.data.items.map((n) => {
               const meta = META[n.type] ?? { icon: Bell, text: "new alert", color: "var(--color-chat)" };
               const Icon = meta.icon;
@@ -122,8 +124,8 @@ export const NotificationsPage = () => {
               const row = (
                 <div
                   className={cn(
-                    "flex h-full items-start gap-3 rounded-sm border-2 border-ink bg-card p-3 transition hover:bg-secondary",
-                    !n.read_at && "shadow-brutal-sm",
+                    "flex h-full items-start gap-3 rounded-sm border-2 bg-card p-3 transition-colors hover:border-acid",
+                    n.read_at ? "border-ink" : "border-l-[6px] border-l-acid border-ink",
                   )}
                 >
                   <span
@@ -144,21 +146,24 @@ export const NotificationsPage = () => {
                   )}
                 </div>
               );
-              return href ? (
-                <Link key={n.id} to={href} onClick={() => !n.read_at && markRead.mutate(n.id)}>
-                  {row}
-                </Link>
-              ) : (
-                <button
-                  key={n.id}
-                  className="text-left"
-                  onClick={() => !n.read_at && markRead.mutate(n.id)}
-                >
-                  {row}
-                </button>
+              return (
+                <motion.div key={n.id} variants={fadeUp}>
+                  {href ? (
+                    <Link to={href} onClick={() => !n.read_at && markRead.mutate(n.id)}>
+                      {row}
+                    </Link>
+                  ) : (
+                    <button
+                      className="w-full text-left"
+                      onClick={() => !n.read_at && markRead.mutate(n.id)}
+                    >
+                      {row}
+                    </button>
+                  )}
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

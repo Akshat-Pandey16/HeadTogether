@@ -1,6 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "@/components/layout/app-layout";
-import { ChatLayout } from "@/components/layout/chat-layout";
 import { ProtectedRoute, PublicOnlyRoute } from "@/components/layout/protected-route";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
 import { ForgotPasswordPage } from "@/features/auth/forgot-password-page";
@@ -35,15 +34,12 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: withBoundary(<RoomsListPage />) },
           { path: "rooms/:roomId", element: withBoundary(<RoomDetailPage />) },
+          { path: "rooms/:roomId/chat", element: withBoundary(<ChatPage />) },
           { path: "dms", element: withBoundary(<DMsPage />) },
           { path: "notifications", element: withBoundary(<NotificationsPage />) },
           { path: "users/:userId", element: withBoundary(<ProfilePage />) },
           { path: "settings", element: withBoundary(<SettingsPage />) },
         ],
-      },
-      {
-        element: <ChatLayout />,
-        children: [{ path: "rooms/:roomId/chat", element: withBoundary(<ChatPage />) }],
       },
     ],
   },

@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "motion/react";
 import { Compass, Crosshair, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RoomMap } from "@/components/map/room-map-lazy";
+import { PageHeader } from "@/components/layout/page-header";
+import { staggerContainer } from "@/components/shared/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,9 +52,25 @@ const sortOptions: { value: NearbySort; label: string }[] = [
   { value: "starts_at", label: "Soonest" },
 ];
 
-const GridShell = ({ children }: { children: React.ReactNode }) => (
+const Grid = ({ rooms, gridKey }: { rooms: (RoomSummary | NearbyRoom)[]; gridKey: string }) => (
+  <motion.div
+    key={gridKey}
+    variants={staggerContainer}
+    initial="hidden"
+    animate="show"
+    className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+  >
+    {rooms.map((r) => (
+      <RoomCard key={r.id} room={r} />
+    ))}
+  </motion.div>
+);
+
+const SkeletonGrid = () => (
   <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-    {children}
+    {Array.from({ length: 10 }).map((_, i) => (
+      <RoomCardSkeleton key={i} />
+    ))}
   </div>
 );
 
@@ -66,7 +85,7 @@ export const RoomsListPage = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const { coords, loading: geoLoading, error: geoError, request } = useGeolocation(true);
+  const { coords, loading: geoLoading, error: geoError, request } = useGeolocation(false);
   const purpose = purposeFilter === "any" ? undefined : purposeFilter;
 
   const joined = useJoinedRooms();
@@ -82,30 +101,28 @@ export const RoomsListPage = () => {
   });
   const searched = useSearchRooms(debouncedSearch, purpose);
   const showSearch = debouncedSearch.trim().length > 0;
-
   const nearbyRooms = useMemo(() => nearby.data?.items ?? [], [nearby.data]);
+
+  const lists: Record<Exclude<Tab, "nearby">, { items?: RoomSummary[]; loading: boolean }> = {
+    joined: { items: joined.data?.items, loading: joined.isLoading },
+    owned: { items: owned.data?.items, loading: owned.isLoading },
+    saved: { items: saved.data?.items, loading: saved.isLoading },
+    past: { items: past.data?.items, loading: past.isLoading },
+  };
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex flex-col gap-3 border-b-2 border-ink bg-card px-4 py-3 lg:flex-row lg:items-center lg:gap-4 lg:py-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-sm border-2 border-ink bg-acid text-acid-foreground">
-            <Compass className="h-5 w-5" strokeWidth={2.5} />
-          </span>
-          <div className="leading-none">
-            <h1 className="font-display text-2xl font-extrabold tracking-tight">Discover</h1>
-            <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-              {coords
-                ? `${nearbyRooms.length} live within ${maxDistance}km`
-                : "rooms anchored to real places"}
-            </p>
-          </div>
-        </div>
-
-        <div className="relative flex-1 lg:max-w-xl">
+      <PageHeader>
+        <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-sm border-2 border-ink bg-acid text-acid-foreground sm:flex">
+          <Compass className="h-5 w-5" strokeWidth={2.5} />
+        </span>
+        <h1 className="hidden shrink-0 font-display text-xl font-extrabold tracking-tight md:block">
+          Discover
+        </h1>
+        <div className="relative ml-auto w-full max-w-xl">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search rooms by name, description, tag…"
+            placeholder="Search rooms…"
             className="pl-9 pr-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -119,84 +136,90 @@ export const RoomsListPage = () => {
             </button>
           )}
         </div>
-
-        <div className="flex items-center gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="Filters">
-                <SlidersHorizontal className="h-4 w-4" strokeWidth={2.5} />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-72 space-y-3">
-              <div className="space-y-1.5">
-                <Label>Purpose</Label>
-                <Select
-                  value={purposeFilter}
-                  onValueChange={(v) => setPurposeFilter(v as RoomPurpose | "any")}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="any">Any purpose</SelectItem>
-                    {PURPOSE_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Sort nearby</Label>
-                <Select value={sort} onValueChange={(v) => setSort(v as NearbySort)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sortOptions.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Max distance · {maxDistance}km</Label>
-                <input
-                  type="range"
-                  min={1}
-                  max={200}
-                  value={maxDistance}
-                  onChange={(e) => setMaxDistance(Number(e.target.value))}
-                  className="w-full accent-[hsl(var(--acid))]"
-                />
-              </div>
-            </PopoverContent>
-          </Popover>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="icon" aria-label="Filters">
+              <SlidersHorizontal className="h-4 w-4" strokeWidth={2.5} />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-72 space-y-3">
+            <div className="space-y-1.5">
+              <Label>Purpose</Label>
+              <Select
+                value={purposeFilter}
+                onValueChange={(v) => setPurposeFilter(v as RoomPurpose | "any")}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any purpose</SelectItem>
+                  {PURPOSE_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Sort nearby</Label>
+              <Select value={sort} onValueChange={(v) => setSort(v as NearbySort)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortOptions.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Max distance · {maxDistance}km</Label>
+              <input
+                type="range"
+                min={1}
+                max={200}
+                value={maxDistance}
+                onChange={(e) => setMaxDistance(Number(e.target.value))}
+                className="w-full accent-[hsl(var(--acid))]"
+              />
+            </div>
+          </PopoverContent>
+        </Popover>
+        <div className="hidden sm:block">
           <JoinByCodeDialog />
-          <Button variant="acid" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" strokeWidth={3} />
-            <span className="hidden sm:inline">New Room</span>
-          </Button>
         </div>
-      </header>
+        <Button variant="acid" size="icon" className="sm:hidden" onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4" strokeWidth={3} />
+        </Button>
+        <Button variant="acid" className="hidden sm:inline-flex" onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4" strokeWidth={3} /> New Room
+        </Button>
+      </PageHeader>
 
       {!showSearch && (
-        <div className="flex items-center gap-1.5 overflow-x-auto border-b-2 border-ink bg-card px-4 py-2 no-scrollbar">
+        <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b-2 border-ink bg-card px-4 py-2 no-scrollbar">
           {TABS.map((t) => (
             <button
               key={t.value}
               onClick={() => setTab(t.value)}
               className={cn(
-                "shrink-0 rounded-sm border-2 px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-wide transition",
-                tab === t.value
-                  ? "border-ink bg-primary text-primary-foreground"
-                  : "border-transparent text-muted-foreground hover:border-ink hover:bg-secondary",
+                "relative shrink-0 rounded-sm px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-wide transition-colors",
+                tab === t.value ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {t.label}
+              {tab === t.value && (
+                <motion.span
+                  layoutId="discover-tab"
+                  className="absolute inset-0 -z-0 rounded-sm border-2 border-ink bg-primary"
+                  transition={{ type: "spring", stiffness: 520, damping: 36 }}
+                />
+              )}
+              <span className="relative z-10">{t.label}</span>
             </button>
           ))}
         </div>
@@ -206,17 +229,9 @@ export const RoomsListPage = () => {
         {showSearch ? (
           <div className="h-full overflow-y-auto">
             {searched.isLoading ? (
-              <GridShell>
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <RoomCardSkeleton key={i} />
-                ))}
-              </GridShell>
+              <SkeletonGrid />
             ) : searched.data && searched.data.items.length > 0 ? (
-              <GridShell>
-                {searched.data.items.map((r) => (
-                  <RoomCard key={r.id} room={r} />
-                ))}
-              </GridShell>
+              <Grid rooms={searched.data.items} gridKey={`search-${debouncedSearch}`} />
             ) : (
               <div className="p-4">
                 <EmptyState
@@ -242,20 +257,7 @@ export const RoomsListPage = () => {
           />
         ) : (
           <div className="h-full overflow-y-auto">
-            <ListTab
-              tab={tab}
-              joined={joined.data?.items}
-              owned={owned.data?.items}
-              saved={saved.data?.items}
-              past={past.data?.items}
-              loading={
-                (tab === "joined" && joined.isLoading) ||
-                (tab === "owned" && owned.isLoading) ||
-                (tab === "saved" && saved.isLoading) ||
-                (tab === "past" && past.isLoading)
-              }
-              onCreate={() => setCreateOpen(true)}
-            />
+            <ListTab tab={tab} list={lists[tab]} onCreate={() => setCreateOpen(true)} />
           </div>
         )}
       </div>
@@ -290,16 +292,21 @@ const NearbyView = ({
   onCreate,
   onOpen,
 }: NearbyViewProps) => {
-  if (geoError && !coords) {
+  if (!coords) {
     return (
       <div className="grid h-full place-items-center p-4">
         <EmptyState
           icon={<Crosshair className="h-6 w-6" />}
-          title="Location is off"
-          description="HeadTogether finds rooms around you. Turn on location to see the map."
+          title={geoLoading ? "Finding you…" : "See who's around"}
+          description={
+            geoError
+              ? "Location was blocked. Allow it in your browser's site permissions, then try again."
+              : "HeadTogether pins rooms to real places. Allow location to load the map and nearby rooms."
+          }
           action={
-            <Button variant="acid" onClick={onRequest}>
-              <Crosshair className="h-4 w-4" strokeWidth={2.5} /> Enable location
+            <Button variant="acid" onClick={onRequest} disabled={geoLoading}>
+              <Crosshair className="h-4 w-4" strokeWidth={2.5} />
+              {geoLoading ? "Locating…" : "Enable location"}
             </Button>
           }
         />
@@ -309,7 +316,7 @@ const NearbyView = ({
 
   return (
     <div className="flex h-full">
-      <div className="flex w-full flex-col border-r-2 border-ink md:w-[380px] xl:w-[440px]">
+      <div className="flex w-full flex-col md:w-[380px] md:border-r-2 md:border-ink xl:w-[440px]">
         <div className="min-h-0 flex-1 overflow-y-auto">
           {geoLoading || loading ? (
             <div className="space-y-3 p-3">
@@ -318,20 +325,21 @@ const NearbyView = ({
               ))}
             </div>
           ) : rooms.length > 0 ? (
-            <div className="space-y-3 p-3">
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="show"
+              className="space-y-3 p-3"
+            >
               {rooms.map((room) => (
-                <div
+                <RoomCard
                   key={room.id}
-                  onMouseEnter={() => onSelect(room.id)}
-                  className={cn(
-                    "rounded-sm transition",
-                    selectedId === room.id && "ring-2 ring-acid ring-offset-2 ring-offset-background",
-                  )}
-                >
-                  <RoomCard room={room} />
-                </div>
+                  room={room}
+                  selected={selectedId === room.id}
+                  onHover={() => onSelect(room.id)}
+                />
               ))}
-            </div>
+            </motion.div>
           ) : (
             <div className="p-3">
               <EmptyState
@@ -375,41 +383,30 @@ const NearbyView = ({
   );
 };
 
-type ListTabProps = {
-  tab: Tab;
-  joined?: RoomSummary[];
-  owned?: RoomSummary[];
-  saved?: RoomSummary[];
-  past?: RoomSummary[];
-  loading: boolean;
-  onCreate: () => void;
+const COPY: Record<Exclude<Tab, "nearby">, { title: string; description: string }> = {
+  joined: { title: "No rooms joined", description: "Join a nearby room or use an invite code." },
+  owned: { title: "No rooms yet", description: "Drop your first room to gather people." },
+  saved: { title: "Nothing saved", description: "Bookmark rooms to keep them handy." },
+  past: { title: "No past rooms", description: "Archived and ended rooms collect here." },
 };
 
-const ListTab = ({ tab, joined, owned, saved, past, loading, onCreate }: ListTabProps) => {
-  const data = tab === "joined" ? joined : tab === "owned" ? owned : tab === "saved" ? saved : past;
-  if (loading) {
-    return (
-      <GridShell>
-        {Array.from({ length: 8 }).map((_, i) => (
-          <RoomCardSkeleton key={i} />
-        ))}
-      </GridShell>
-    );
-  }
-  if (!data || data.length === 0) {
-    const copy: Record<Tab, { title: string; description: string }> = {
-      nearby: { title: "Nothing nearby", description: "" },
-      joined: { title: "No rooms joined", description: "Join a nearby room or use an invite code." },
-      owned: { title: "No rooms yet", description: "Drop your first room to gather people." },
-      saved: { title: "Nothing saved", description: "Bookmark rooms to keep them handy." },
-      past: { title: "No past rooms", description: "Archived and ended rooms collect here." },
-    };
+const ListTab = ({
+  tab,
+  list,
+  onCreate,
+}: {
+  tab: Exclude<Tab, "nearby">;
+  list: { items?: RoomSummary[]; loading: boolean };
+  onCreate: () => void;
+}) => {
+  if (list.loading) return <SkeletonGrid />;
+  if (!list.items || list.items.length === 0) {
     return (
       <div className="p-4">
         <EmptyState
           icon={<Compass className="h-6 w-6" />}
-          title={copy[tab].title}
-          description={copy[tab].description}
+          title={COPY[tab].title}
+          description={COPY[tab].description}
           action={
             tab === "owned" ? (
               <Button variant="acid" onClick={onCreate}>
@@ -421,11 +418,5 @@ const ListTab = ({ tab, joined, owned, saved, past, loading, onCreate }: ListTab
       </div>
     );
   }
-  return (
-    <GridShell>
-      {data.map((r) => (
-        <RoomCard key={r.id} room={r} />
-      ))}
-    </GridShell>
-  );
+  return <Grid rooms={list.items} gridKey={tab} />;
 };
